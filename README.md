@@ -1,4 +1,3 @@
-## 
 <table width="100%">
 	<tr>
 		<td align="left" colspan="2">
