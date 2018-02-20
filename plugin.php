@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * Plugin Name: AWS X-Ray
+ * Description: HM Platform plugin for sending data to AWS X-Ray
+ * Author: Human made
+ */
+
 namespace HM\Platform\XRay;
 
 use function HM\Platform\get_aws_sdk;
