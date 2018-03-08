@@ -97,17 +97,23 @@ function get_xhprof_trace() : array {
 	$end_time = microtime( true );
 
 	$stack = xhprof_sample_disable();
-	$time = (int) ini_get( 'xhprof.sampling_interval' );
+	$sample_interval = (int) ini_get( 'xhprof.sampling_interval' );
 	$max_frames = 1000;
 
 	// Trim to stack to have a theoretical maximum, essentially reducing the resolution.
 	if ( count( $stack ) > $max_frames ) {
 		$pluck_every_n = ceil( count( $stack ) / $max_frames );
-		$stack = array_filter( $stack, function ( int $frame_number ) use ( $pluck_every_n ) : bool {
+		$sample_interval = ceil( $sample_interval * ( count( $stack ) / $max_frames ) );
+
+		$stack = array_filter( $stack, function ( $value ) use ( $pluck_every_n ) : bool {
+			static $frame_number = -1;
+			$frame_number++;
 			return $frame_number % $pluck_every_n === 0;
-		}, ARRAY_FILTER_USE_KEY );
+		} );
 	}
-	$time_seconds = $time / 1000000;
+
+	$time_seconds = $sample_interval / 1000000;
+
 	$nodes = [ (object) [
 		'name'       => 'main()',
 		'value'      => 1,
@@ -115,9 +121,10 @@ function get_xhprof_trace() : array {
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => $hm_platform_xray_start_time,
 	] ];
+
 	foreach ( $stack as $time => $call_stack ) {
 		$call_stack = explode( '==>', $call_stack );
-		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time );
+		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time, $time_seconds );
 	}
 
 	return $nodes;
@@ -126,32 +133,25 @@ function get_xhprof_trace() : array {
 /**
  * Accepts [ Node, Node ], [ main, wp-settings, sleep ]
  */
-function add_children_to_nodes( array $nodes, array $children, float $sample_time ) : array {
+function add_children_to_nodes( array $nodes, array $children, float $sample_time, float $sample_duration ) : array {
 	$last_node = $nodes ? $nodes[ count( $nodes ) - 1 ] : null;
 	$this_child = $children[0];
-	$time = (int) ini_get( 'xhprof.sampling_interval' );
-
-	if ( ! $time ) {
-		$time = 100000;
-	}
-
-	$time_seconds = $time / 1000000;
 
 	if ( $last_node && $last_node->name === $this_child ) {
 		$node = $last_node;
-		$node->value += ( $time / 1000 );
-		$node->end_time += $time_seconds;
+		$node->value += ( $sample_duration / 1000 );
+		$node->end_time += $sample_duration;
 	} else {
 		$nodes[] = $node = (object) [
 			'name'       => $this_child,
-			'value'      => $time / 1000,
+			'value'      => $sample_duration / 1000,
 			'children'   => [],
 			'start_time' => $sample_time,
-			'end_time'   => $sample_time + $time_seconds,
+			'end_time'   => $sample_time + $sample_duration,
 		];
 	}
 	if ( count( $children ) > 1 ) {
-		$node->children = add_children_to_nodes( $node->children, array_slice( $children, 1 ), $sample_time );
+		$node->children = add_children_to_nodes( $node->children, array_slice( $children, 1 ), $sample_time, $sample_duration );
 	}
 
 	return $nodes;
