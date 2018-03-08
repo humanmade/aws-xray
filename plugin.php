@@ -17,6 +17,10 @@ add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
  * Shutdown callback to process the trace once everything has finished.
  */
 function on_shutdown() {
+	// Only run on requests via PHP-FPM.
+	if ( ! function_exists( 'fastcgi_finish_request' ) ) {
+		return;
+	}
 	fastcgi_finish_request();
 	send_trace_to_aws( get_trace() );
 }
@@ -38,7 +42,7 @@ function send_trace_to_aws( $trace ) {
 	}
 }
 
-function get_trace() {
+function get_trace() : array {
 	global $hm_platform_xray_start_time;
 	$xhprof_trace = get_xhprof_trace();
 	$subsegments = $xhprof_trace;
@@ -74,7 +78,7 @@ function get_trace() {
 	];
 }
 
-function get_xray_segmant_for_xhprof_trace( $item ) {
+function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	return [
 		'name'        => preg_replace( '~[^\w\s_\.:/%&#=+\-@]~u', '', $item->name ),
 		'subsegments' => array_map( __FUNCTION__, $item->children ),
@@ -84,8 +88,7 @@ function get_xray_segmant_for_xhprof_trace( $item ) {
 	];
 }
 
-function get_xhprof_trace() {
-
+function get_xhprof_trace() : array {
 	if ( ! function_exists( 'xhprof_sample_disable' ) ) {
 		return [];
 	}
@@ -95,14 +98,23 @@ function get_xhprof_trace() {
 
 	$stack = xhprof_sample_disable();
 	$time = (int) ini_get( 'xhprof.sampling_interval' );
+	$max_frames = 1000;
+
+	// Trim to stack to have a theoretical maximum, essentially reducing the resolution.
+	if ( count( $stack ) > $max_frames ) {
+		$pluck_every_n = ceil( count( $stack ) / $max_frames );
+		$stack = array_filter( $stack, function ( int $frame_number ) use ( $pluck_every_n ) : bool {
+			return $frame_number % $pluck_every_n === 0;
+		}, ARRAY_FILTER_USE_KEY );
+	}
 	$time_seconds = $time / 1000000;
-	$nodes = array( (object) array(
+	$nodes = [ (object) [
 		'name'       => 'main()',
 		'value'      => 1,
 		'children'   => [],
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => $hm_platform_xray_start_time,
-	) );
+	] ];
 	foreach ( $stack as $time => $call_stack ) {
 		$call_stack = explode( '==>', $call_stack );
 		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time );
@@ -114,7 +126,7 @@ function get_xhprof_trace() {
 /**
  * Accepts [ Node, Node ], [ main, wp-settings, sleep ]
  */
-function add_children_to_nodes( $nodes, $children, $sample_time ) {
+function add_children_to_nodes( array $nodes, array $children, float $sample_time ) : array {
 	$last_node = $nodes ? $nodes[ count( $nodes ) - 1 ] : null;
 	$this_child = $children[0];
 	$time = (int) ini_get( 'xhprof.sampling_interval' );
@@ -130,13 +142,13 @@ function add_children_to_nodes( $nodes, $children, $sample_time ) {
 		$node->value += ( $time / 1000 );
 		$node->end_time += $time_seconds;
 	} else {
-		$nodes[] = $node = (object) array(
+		$nodes[] = $node = (object) [
 			'name'       => $this_child,
 			'value'      => $time / 1000,
-			'children'   => array(),
+			'children'   => [],
 			'start_time' => $sample_time,
 			'end_time'   => $sample_time + $time_seconds,
-		);
+		];
 	}
 	if ( count( $children ) > 1 ) {
 		$node->children = add_children_to_nodes( $node->children, array_slice( $children, 1 ), $sample_time );
