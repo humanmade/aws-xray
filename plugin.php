@@ -12,6 +12,7 @@ use function HM\Platform\get_aws_sdk;
 use Exception;
 
 add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
+set_error_handler( __NAMESPACE__ . '\\error_handler' );
 
 /**
  * Shutdown callback to process the trace once everything has finished.
@@ -22,7 +23,20 @@ function on_shutdown() {
 		return;
 	}
 	fastcgi_finish_request();
+
+	// Check if we were shut down by an error.
+	$last_error = error_get_last();
+	if ( $last_error ) {
+		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
+	}
 	send_trace_to_aws( get_trace() );
+}
+
+function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
+	global $hm_platform_xray_errors;
+	$hm_platform_xray_errors[ microtime( true ) ] = compact( 'errno', 'errstr', 'errfile', 'errline' );
+	// Allow other error reporting too.
+	return false;
 }
 
 /**
@@ -42,15 +56,44 @@ function send_trace_to_aws( $trace ) {
 	}
 }
 
+function get_root_trace_id() {
+	static $trace_id;
+	if ( $trace_id ) {
+		return $trace_id;
+	}
+	if ( isset( $_SERVER['HTTP_X_AMZN_TRACE_ID'] ) ) {
+		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] );
+		$traces = array_reduce( $traces, function ( $traces, $trace ) {
+			$parts = explode( '=', $trace );
+			$traces[ $parts[0] ] = $parts[1];
+			return $traces;
+		}, [] );
+
+		if ( isset( $traces['Self'] ) ) {
+			$trace_id = $traces['Self'];
+		} elseif ( isset( $traces['Root'] ) ) {
+			$trace_id = $traces['Root'];
+		}
+	}
+
+	if ( ! $trace_id ) {
+		$trace_id = '1-' . dechex( time() ) . '-' . bin2hex( random_bytes( 12 ) );
+	}
+
+	return $trace_id;
+}
+
 function get_trace() : array {
-	global $hm_platform_xray_start_time;
+	global $hm_platform_xray_start_time, $hm_platform_xray_errors;
 	$xhprof_trace = get_xhprof_trace();
 	$subsegments = $xhprof_trace;
-
+	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
+	$is_fatal = in_array( E_ERROR, $error_numbers, true );
+	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
 	return [
 		'name'       => HM_ENV,
 		'id'         => bin2hex( random_bytes( 8 ) ),
-		'trace_id'   => '1-' . dechex( time() ) . '-' . bin2hex( random_bytes( 12 ) ),
+		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => microtime( true ),
 		'service'    => [
@@ -75,6 +118,22 @@ function get_trace() : array {
 			'$_SERVER'  => $_SERVER,
 		],
 		'subsegments' => array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', $xhprof_trace ),
+		'fault' => $is_fatal,
+		'error' => $has_non_fatal_errors,
+		'cause' => $hm_platform_xray_errors ? [
+			'exceptions' => array_map( function ( $error ) {
+				return [
+					'message' => $error['errstr'],
+					'type' => get_error_type_for_error_number( $error['errno'] ),
+					'stack' => [
+						[
+							'path' => $error['errfile'],
+							'line' => $error['errline'],
+						],
+					],
+				];
+			}, array_values( $hm_platform_xray_errors ) ),
+		] : null,
 	];
 }
 
@@ -156,4 +215,40 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 
 	return $nodes;
 
+}
+
+function get_error_type_for_error_number( $type ) : string {
+	switch( $type ) {
+		case E_ERROR:
+			return 'E_ERROR';
+		case E_WARNING:
+			return 'E_WARNING';
+		case E_PARSE:
+			return 'E_PARSE';
+		case E_NOTICE:
+			return 'E_NOTICE';
+		case E_CORE_ERROR:
+			return 'E_CORE_ERROR';
+		case E_CORE_WARNING:
+			return 'E_CORE_WARNING';
+		case E_COMPILE_ERROR:
+			return 'E_COMPILE_ERROR';
+		case E_COMPILE_WARNING:
+			return 'E_COMPILE_WARNING';
+		case E_USER_ERROR:
+			return 'E_USER_ERROR';
+		case E_USER_WARNING:
+			return 'E_USER_WARNING';
+		case E_USER_NOTICE:
+			return 'E_USER_NOTICE';
+		case E_STRICT:
+			return 'E_STRICT';
+		case E_RECOVERABLE_ERROR:
+			return 'E_RECOVERABLE_ERROR';
+		case E_DEPRECATED:
+			return 'E_DEPRECATED';
+		case E_USER_DEPRECATED:
+			return 'E_USER_DEPRECATED';
+	}
+	return '';
 }
