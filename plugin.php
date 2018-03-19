@@ -11,6 +11,8 @@ namespace HM\Platform\XRay;
 use function HM\Platform\get_aws_sdk;
 use Exception;
 
+$GLOBALS['hm_platform_xray_errors'] = [];
+
 add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 set_error_handler( __NAMESPACE__ . '\\error_handler' );
 
