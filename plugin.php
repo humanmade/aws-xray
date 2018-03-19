@@ -14,7 +14,7 @@ use Exception;
 $GLOBALS['hm_platform_xray_errors'] = [];
 
 add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
-set_error_handler( __NAMESPACE__ . '\\error_handler' );
+$GLOBALS['hm_platform_prev_error_handler'] = set_error_handler( __NAMESPACE__ . '\\error_handler' );
 
 /**
  * Shutdown callback to process the trace once everything has finished.
@@ -35,9 +35,12 @@ function on_shutdown() {
 }
 
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
-	global $hm_platform_xray_errors;
+	global $hm_platform_xray_errors, $hm_platform_prev_error_handler;
 	$hm_platform_xray_errors[ microtime( true ) ] = compact( 'errno', 'errstr', 'errfile', 'errline' );
 	// Allow other error reporting too.
+	if ( $hm_platform_prev_error_handler ) {
+		call_user_func( $hm_platform_prev_error_handler, $errno, $errstr, $errfile, $errline );
+	}
 	return false;
 }
 
