@@ -13,12 +13,17 @@ use function HM\Platform\get_aws_sdk;
 
 $GLOBALS['hm_platform_xray_errors'] = [];
 
+global $hm_platform_xray_start_time;
+if ( ! $hm_platform_xray_start_time ) {
+	$hm_platform_xray_start_time = microtime( true );
+}
+
 if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
 	define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 }
 
 add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
-set_error_handler( __NAMESPACE__ . '\\error_handler' );
+set_error_handler( __NAMESPACE__ . '\\error_handler',  error_reporting() );
 send_trace_to_daemon( get_in_progress_trace() );
 
 /**
