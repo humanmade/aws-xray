@@ -8,30 +8,33 @@
 
 namespace HM\Platform\XRay;
 
-use function HM\Platform\get_aws_sdk;
 use Exception;
+use function HM\Platform\get_aws_sdk;
 
 $GLOBALS['hm_platform_xray_errors'] = [];
 
 add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 set_error_handler( __NAMESPACE__ . '\\error_handler' );
+send_trace_to_daemon( get_in_progress_trace() );
+
+if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
+	define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
+}
 
 /**
  * Shutdown callback to process the trace once everything has finished.
  */
 function on_shutdown() {
-	// Only run on requests via PHP-FPM.
-	if ( ! function_exists( 'fastcgi_finish_request' ) ) {
-		return;
+	if ( function_exists( 'fastcgi_finish_request' ) ) {
+		fastcgi_finish_request();
 	}
-	fastcgi_finish_request();
 
 	// Check if we were shut down by an error.
 	$last_error = error_get_last();
 	if ( $last_error ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
-	send_trace_to_aws( get_trace() );
+	send_trace_to_daemon( get_end_trace() );
 }
 
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
@@ -44,11 +47,11 @@ function error_handler( int $errno, string $errstr, string $errfile = null, int 
 /**
  * Send a XRay trace document to AWS using the HTTP API.
  *
- * This is slower than using the XRay Daemon, but more confenient.
+ * This is slower than using the XRay Daemon, but more convenient.
  *
  * @param array $trace
  */
-function send_trace_to_aws( $trace ) {
+function send_trace_to_aws( array $trace ) {
 	try {
 		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments([
 			'TraceSegmentDocuments' => [ json_encode( $trace ) ],
@@ -56,6 +59,16 @@ function send_trace_to_aws( $trace ) {
 	} catch ( Exception $e ) {
 		trigger_error( $e->getMessage(), E_USER_WARNING );
 	}
+}
+
+/**
+ * Send a XRay trace document to AWS using the local daemon running on port 2000.
+ *
+ * @param array $trace
+ */
+function send_trace_to_daemon( array $trace ) {
+	$message = '{"format": "json", "version": 1}' . "\n" . json_encode( $trace );
+	$sent_bytes = socket_sendto( $socket, $message, mb_strlen( $message ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
 }
 
 function get_root_trace_id() {
@@ -85,8 +98,54 @@ function get_root_trace_id() {
 	return $trace_id;
 }
 
-function get_trace() : array {
+function get_main_trace_id() : string {
+	static $id;
+	if ( $id ) {
+		return $id;
+	}
+	$id = bin2hex( random_bytes( 8 ) );
+	return $id;
+}
+
+/**
+ * Get the initial in progress trace for the start of the main segment.
+ */
+function get_in_progress_trace() : array {
+	global $hm_platform_xray_start_time;
+	return [
+		'name'       => HM_ENV,
+		'id'         => get_main_trace_id(),
+		'trace_id'   => get_root_trace_id(),
+		'start_time' => $hm_platform_xray_start_time,
+		'service'    => [
+			'version' => HM_DEPLOYMENT_REVISION,
+		],
+		'origin'     => 'AWS::EC2::Instance',
+		'http'       => [
+			'request' => [
+				'method'    => $_SERVER['REQUEST_METHOD'],
+				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
+				'client_ip' => $_SERVER['REMOTE_ADDR'],
+			],
+		],
+		'metadata' => [
+			'$_GET'     => $_GET,
+			'$_POST'    => $_POST,
+			'$_COOKIE'  => $_COOKIE,
+			'$_SERVER'  => $_SERVER,
+		],
+		'in_progress' => true,
+	];
+}
+
+/**
+ * Get the final trace for the main segment.
+ */
+function get_end_trace() : array {
 	global $hm_platform_xray_start_time, $hm_platform_xray_errors;
+	if ( ! $hm_platform_xray_errors ) {
+		$hm_platform_xray_errors = [];
+	}
 	$xhprof_trace = get_xhprof_trace();
 	$subsegments = $xhprof_trace;
 	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
@@ -94,14 +153,14 @@ function get_trace() : array {
 	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
 	return [
 		'name'       => HM_ENV,
-		'id'         => bin2hex( random_bytes( 8 ) ),
+		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => microtime( true ),
+		'user'       => get_current_user_id(),
 		'service'    => [
 			'version' => HM_DEPLOYMENT_REVISION,
 		],
-		'user'       => get_current_user_id(),
 		'origin'     => 'AWS::EC2::Instance',
 		'http'       => [
 			'request' => [
@@ -136,6 +195,7 @@ function get_trace() : array {
 				];
 			}, array_values( $hm_platform_xray_errors ) ),
 		] : null,
+		'in_progress' => false,
 	];
 }
 
@@ -220,7 +280,7 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 }
 
 function get_error_type_for_error_number( $type ) : string {
-	switch( $type ) {
+	switch ( $type ) {
 		case E_ERROR:
 			return 'E_ERROR';
 		case E_WARNING:
