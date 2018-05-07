@@ -218,6 +218,9 @@ function get_xhprof_trace() : array {
 	$end_time = microtime( true );
 
 	$stack = xhprof_sample_disable();
+	if ( ! $stack ) {
+		return [];
+	}
 	$sample_interval = (int) ini_get( 'xhprof.sampling_interval' );
 	$max_frames = 1000;
 
