@@ -22,9 +22,17 @@ if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
 	define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 }
 
-add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
-set_error_handler( __NAMESPACE__ . '\\error_handler',  error_reporting() );
-send_trace_to_daemon( get_in_progress_trace() );
+bootstrap();
+
+/**
+ * Bootstrapper for the plugin.
+ */
+function bootstrap() {
+	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
+	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
+	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() );
+	send_trace_to_daemon( get_in_progress_trace() );
+}
 
 /**
  * Shutdown callback to process the trace once everything has finished.
@@ -47,6 +55,14 @@ function error_handler( int $errno, string $errstr, string $errfile = null, int 
 	$hm_platform_xray_errors[ microtime( true ) ] = compact( 'errno', 'errstr', 'errfile', 'errline' );
 	// Allow other error reporting too.
 	return false;
+}
+
+/**
+ * Filter all queries via wpdb to add the filter.
+ */
+function filter_mysql_query( $query ) {
+	$query .= ' # Trace ID: ' . get_root_trace_id();
+	return $query;
 }
 
 /**
@@ -78,7 +94,11 @@ function send_trace_to_daemon( array $trace ) {
 	socket_close( $socket );
 }
 
-function get_root_trace_id() {
+/**
+ * Get the root trace ID for the request
+ *
+ */
+function get_root_trace_id() : string {
 	static $trace_id;
 	if ( $trace_id ) {
 		return $trace_id;
