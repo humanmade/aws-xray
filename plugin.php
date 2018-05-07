@@ -13,13 +13,13 @@ use function HM\Platform\get_aws_sdk;
 
 $GLOBALS['hm_platform_xray_errors'] = [];
 
-add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
-set_error_handler( __NAMESPACE__ . '\\error_handler' );
-send_trace_to_daemon( get_in_progress_trace() );
-
 if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
 	define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 }
+
+add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
+set_error_handler( __NAMESPACE__ . '\\error_handler' );
+send_trace_to_daemon( get_in_progress_trace() );
 
 /**
  * Shutdown callback to process the trace once everything has finished.
@@ -68,7 +68,9 @@ function send_trace_to_aws( array $trace ) {
  */
 function send_trace_to_daemon( array $trace ) {
 	$message = '{"format": "json", "version": 1}' . "\n" . json_encode( $trace );
+	$socket = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
 	$sent_bytes = socket_sendto( $socket, $message, mb_strlen( $message ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
+	socket_close( $socket );
 }
 
 function get_root_trace_id() {
