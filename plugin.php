@@ -47,12 +47,14 @@ function on_shutdown() {
 	if ( $last_error ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
+	send_trace_to_daemon( get_xhprof_xray_trace() );
 	send_trace_to_daemon( get_end_trace() );
 }
 
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
 	global $hm_platform_xray_errors;
-	$hm_platform_xray_errors[ microtime( true ) ] = compact( 'errno', 'errstr', 'errfile', 'errline' );
+
+	$hm_platform_xray_errors[] = compact( 'errno', 'errstr', 'errfile', 'errline' );
 	// Allow other error reporting too.
 	return false;
 }
@@ -63,6 +65,37 @@ function error_handler( int $errno, string $errstr, string $errfile = null, int 
 function filter_mysql_query( $query ) {
 	$query .= ' # Trace ID: ' . get_root_trace_id();
 	return $query;
+}
+
+function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored ) {
+	$trace = [
+		'name'       => DB_HOST,
+		'id'         => bin2hex( random_bytes( 8 ) ),
+		'trace_id'   => get_root_trace_id(),
+		'parent_id'  => get_main_trace_id(),
+		'type'       => 'subsegment',
+		'start_time' => $start_time,
+		'end_time'   => $end_time,
+		'namespace'  => 'remote',
+		'sql'        => [
+			'user'            => DB_USER,
+			'url'             => DB_HOST,
+			'database_type'   => 'mysql',
+			'sanitized_query' => $query,
+		],
+	];
+	if ( $errored ) {
+		$trace['fault'] = true;
+		$trace['cause'] = [
+			'exceptions' => [
+				[
+					'id' => bin2hex( random_bytes( 8 ) ),
+					'message' => $errored,
+				],
+			],
+		];
+	}
+	send_trace_to_daemon( $trace );
 }
 
 /**
@@ -167,7 +200,7 @@ function get_main_trace_id() : string {
  */
 function get_in_progress_trace() : array {
 	global $hm_platform_xray_start_time;
-	return [
+	$trace = [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
@@ -191,6 +224,8 @@ function get_in_progress_trace() : array {
 		],
 		'in_progress' => true,
 	];
+
+	return $trace;
 }
 
 /**
@@ -201,13 +236,12 @@ function get_end_trace() : array {
 	if ( ! $hm_platform_xray_errors ) {
 		$hm_platform_xray_errors = [];
 	}
-	$xhprof_trace = get_xhprof_trace();
-	$subsegments = $xhprof_trace;
 	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal = in_array( E_ERROR, $error_numbers, true );
 	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
+
 	return [
-		'name'       => HM_ENV,
+		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
@@ -233,7 +267,6 @@ function get_end_trace() : array {
 			'$_COOKIE'  => $_COOKIE,
 			'$_SERVER'  => $_SERVER,
 		],
-		'subsegments' => array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', $xhprof_trace ),
 		'fault' => $is_fatal,
 		'error' => $has_non_fatal_errors,
 		'cause' => $hm_platform_xray_errors ? [
@@ -252,6 +285,19 @@ function get_end_trace() : array {
 		] : null,
 		'in_progress' => false,
 	];
+}
+
+function get_xhprof_xray_trace() : array {
+	$xhprof_trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', get_xhprof_trace() );
+	if ( ! $xhprof_trace ) {
+		return [];
+	}
+	$xhprof_trace = $xhprof_trace[0];
+	$xhprof_trace['trace_id'] = get_root_trace_id();
+	$xhprof_trace['name'] = 'xhprof';
+	$xhprof_trace['parent_id'] = get_main_trace_id();
+	$xhprof_trace['type'] = 'subsegment';
+	return $xhprof_trace;
 }
 
 function get_xray_segmant_for_xhprof_trace( $item ) : array {
