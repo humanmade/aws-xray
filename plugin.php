@@ -88,10 +88,38 @@ function send_trace_to_aws( array $trace ) {
  * @param array $trace
  */
 function send_trace_to_daemon( array $trace ) {
-	$message = '{"format": "json", "version": 1}' . "\n" . json_encode( $trace );
+	$header = '{"format": "json", "version": 1}';
+	$messages = get_flattened_segments_from_trace( $trace );
 	$socket = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
-	$sent_bytes = socket_sendto( $socket, $message, mb_strlen( $message ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
+	foreach ( $messages as $message ) {
+		$string = $header . "\n" . json_encode( $message );
+		$sent_bytes = socket_sendto( $socket, $string, mb_strlen( $string ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
+	}
+
 	socket_close( $socket );
+}
+
+/**
+ * To handle traces larger than 64kb we have to flatted out the array of subsegments when required.
+ */
+function get_flattened_segments_from_trace( array $trace ) : array {
+	$segments = [];
+	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < 1024 ) {
+		return [ $trace ];
+	}
+
+	$subsegments = $trace['subsegments'];
+	unset( $trace['subsegments'] );
+	$segments[] = $trace;
+
+	foreach ( $subsegments as $subsegment ) {
+		$subsegment['parent_id'] = $trace['id'];
+		$subsegment['trace_id'] = get_root_trace_id();
+		$subsegment['type'] = 'subsegment';
+		$segments = array_merge( $segments, get_flattened_segments_from_trace( $subsegment ) );
+	}
+
+	return $segments;
 }
 
 /**
@@ -140,7 +168,7 @@ function get_main_trace_id() : string {
 function get_in_progress_trace() : array {
 	global $hm_platform_xray_start_time;
 	return [
-		'name'       => HM_ENV,
+		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
