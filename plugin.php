@@ -31,6 +31,7 @@ bootstrap();
 function bootstrap() {
 	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
+	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
 	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() );
 	send_trace_to_daemon( get_in_progress_trace() );
 }
@@ -66,6 +67,42 @@ function error_handler( int $errno, string $errstr, string $errfile = null, int 
 function filter_mysql_query( $query ) {
 	$query .= ' # Trace ID: ' . get_root_trace_id();
 	return $query;
+}
+
+function trace_requests_request( $url, $headers, $data, $method, $options ) {
+	$domain = parse_url( $url, PHP_URL_HOST );
+	$trace = [
+		'name'       => $domain,
+		'id'         => bin2hex( random_bytes( 8 ) ),
+		'trace_id'   => get_root_trace_id(),
+		'parent_id'  => get_main_trace_id(),
+		'type'       => 'subsegment',
+		'start_time' => microtime( true ),
+		'namespace'  => 'remote',
+		'http'       => [
+			'request'    => [
+				'method'          => $method,
+				'url'             => $url,
+				'user_agent'      => $options['useragent'],
+			],
+		],
+		'in_progress' => true,
+	];
+	send_trace_to_daemon( $trace );
+	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
+		remove_action( 'requests.after_request', $on_complete );
+		$trace['in_progress'] = false;
+		$trace['end_time'] = microtime( true );
+		$trace['http']['response'] = [
+			'status' => $response->status_code,
+			'content_length' => $response->headers['content-length'],
+		];
+		send_trace_to_daemon( $trace );
+		return $response;
+	};
+	add_action( 'requests-requests.after_request', $on_complete );
+
+	return $url;
 }
 
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored ) {
