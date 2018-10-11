@@ -31,6 +31,7 @@ bootstrap();
 function bootstrap() {
 	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
+	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
 	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() );
 	send_trace_to_daemon( get_in_progress_trace() );
 }
@@ -70,6 +71,54 @@ function filter_mysql_query( $query ) {
 	}
 	$query .= ' # Trace ID: ' . get_root_trace_id();
 	return $query;
+}
+
+function trace_requests_request( $url, $headers, $data, $method, $options ) {
+	$domain = parse_url( $url, PHP_URL_HOST );
+	$trace = [
+		'name'       => $domain,
+		'id'         => bin2hex( random_bytes( 8 ) ),
+		'trace_id'   => get_root_trace_id(),
+		'parent_id'  => get_main_trace_id(),
+		'type'       => 'subsegment',
+		'start_time' => microtime( true ),
+		'namespace'  => 'remote',
+		'http'       => [
+			'request'    => [
+				'method'          => $method,
+				'url'             => $url,
+				'user_agent'      => $options['useragent'],
+			],
+		],
+		'in_progress' => true,
+	];
+	send_trace_to_daemon( $trace );
+	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
+		remove_action( 'http_api_debug', $on_complete );
+		$trace['in_progress'] = false;
+		$trace['end_time'] = microtime( true );
+		if ( is_wp_error( $response ) ) {
+			$trace['fault'] = true;
+			$trace['cause'] = [
+				'exceptions' => [
+					[
+						'id' => bin2hex( random_bytes( 8 ) ),
+						'message' => sprintf( '%s (%s)', $response->get_error_message(), $response->get_error_code() ),
+					],
+				],
+			];
+		} else {
+			$trace['http']['response'] = [
+				'status' => $response['response']['code'],
+			];
+		}
+
+		send_trace_to_daemon( $trace );
+		return $response;
+	};
+	add_action( 'http_api_debug', $on_complete );
+
+	return $url;
 }
 
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored ) {
