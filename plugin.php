@@ -94,17 +94,29 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	];
 	send_trace_to_daemon( $trace );
 	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
-		remove_action( 'requests.after_request', $on_complete );
+		remove_action( 'http_api_debug', $on_complete );
 		$trace['in_progress'] = false;
 		$trace['end_time'] = microtime( true );
-		$trace['http']['response'] = [
-			'status' => $response->status_code,
-			'content_length' => $response->headers['content-length'],
-		];
+		if ( is_wp_error( $response ) ) {
+			$trace['fault'] = true;
+			$trace['cause'] = [
+				'exceptions' => [
+					[
+						'id' => bin2hex( random_bytes( 8 ) ),
+						'message' => sprintf( '%s (%s)', $response->get_error_message(), $response->get_error_code() ),
+					],
+				],
+			];
+		} else {
+			$trace['http']['response'] = [
+				'status' => $response['response']['code'],
+			];
+		}
+
 		send_trace_to_daemon( $trace );
 		return $response;
 	};
-	add_action( 'requests-requests.after_request', $on_complete );
+	add_action( 'http_api_debug', $on_complete );
 
 	return $url;
 }
