@@ -12,7 +12,7 @@ function bootstrap() {
 	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
 	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
-	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() );
+	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() ); // @codingStandardsIgnoreLine
 	send_trace_to_daemon( get_in_progress_trace() );
 }
 
@@ -54,7 +54,7 @@ function filter_mysql_query( $query ) {
 }
 
 function trace_requests_request( $url, $headers, $data, $method, $options ) {
-	$domain = parse_url( $url, PHP_URL_HOST );
+	$domain = parse_url( $url, PHP_URL_HOST ); // @codingStandardsIgnoreLine
 	$trace = [
 		'name'       => $domain,
 		'id'         => bin2hex( random_bytes( 8 ) ),
@@ -272,7 +272,7 @@ function get_end_trace() : array {
 	}
 	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal = in_array( E_ERROR, $error_numbers, true );
-	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
+	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
 
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
@@ -373,13 +373,15 @@ function get_xhprof_trace() : array {
 
 	$time_seconds = $sample_interval / 1000000;
 
-	$nodes = [ (object) [
-		'name'       => 'main()',
-		'value'      => 1,
-		'children'   => [],
-		'start_time' => $hm_platform_xray_start_time,
-		'end_time'   => $hm_platform_xray_start_time,
-	] ];
+	$nodes = [
+		(object) [
+			'name'       => 'main()',
+			'value'      => 1,
+			'children'   => [],
+			'start_time' => $hm_platform_xray_start_time,
+			'end_time'   => $hm_platform_xray_start_time,
+		]
+	];
 
 	foreach ( $stack as $time => $call_stack ) {
 		$call_stack = explode( '==>', $call_stack );
@@ -401,7 +403,7 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 		$node->value += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
-		$nodes[] = $node = (object) [
+		$nodes[] = $node = (object) [ // @codingStandardsIgnoreLine
 			'name'       => $this_child,
 			'value'      => $sample_duration / 1000,
 			'children'   => [],
