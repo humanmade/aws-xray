@@ -16,6 +16,7 @@ class DB extends wpdb {
 
 	public function get_caller() {
 		if ( function_exists( 'wp_debug_backtrace_summary' ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_wp_debug_backtrace_summary
 			return wp_debug_backtrace_summary( __CLASS__ );
 		}
 		return $this->wp_debug_backtrace_summary( __CLASS__ );
@@ -39,12 +40,15 @@ class DB extends wpdb {
 	*                      of individual calls.
 	*/
 	function wp_debug_backtrace_summary( $ignore_class = null, $skip_frames = 0, $pretty = true ) {
-		if ( version_compare( PHP_VERSION, '5.2.5', '>=' ) )
+		if ( version_compare( PHP_VERSION, '5.2.5', '>=' ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace
 			$trace = debug_backtrace( false );
-		else
+		} else {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace
 			$trace = debug_backtrace();
+		}
 
-		$caller = array();
+		$caller = [];
 		$check_class = ! is_null( $ignore_class );
 		$skip_frames++; // skip this function
 
@@ -52,23 +56,25 @@ class DB extends wpdb {
 			if ( $skip_frames > 0 ) {
 				$skip_frames--;
 			} elseif ( isset( $call['class'] ) ) {
-				if ( $check_class && $ignore_class == $call['class'] )
+				if ( $check_class && $ignore_class === $call['class'] ) {
 					continue; // Filter out calls
+				}
 
 				$caller[] = "{$call['class']}{$call['type']}{$call['function']}";
 			} else {
-				if ( in_array( $call['function'], array( 'do_action', 'apply_filters' ) ) ) {
+				if ( in_array( $call['function'], [ 'do_action', 'apply_filters' ], true ) ) {
 					$caller[] = "{$call['function']}('{$call['args'][0]}')";
-				} elseif ( in_array( $call['function'], array( 'include', 'include_once', 'require', 'require_once' ) ) ) {
-					$caller[] = $call['function'] . "('" . str_replace( array( WP_CONTENT_DIR, ABSPATH ) , '', $call['args'][0] ) . "')";
+				} elseif ( in_array( $call['function'], [ 'include', 'include_once', 'require', 'require_once' ], true ) ) {
+					$caller[] = $call['function'] . "('" . str_replace( [ WP_CONTENT_DIR, ABSPATH ], '', $call['args'][0] ) . "')";
 				} else {
 					$caller[] = $call['function'];
 				}
 			}
 		}
-		if ( $pretty )
+		if ( $pretty ) {
 			return join( ', ', array_reverse( $caller ) );
-		else
+		} else {
 			return $caller;
+		}
 	}
 }
