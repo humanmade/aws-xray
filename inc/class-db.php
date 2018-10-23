@@ -15,10 +15,6 @@ class DB extends wpdb {
 	}
 
 	public function get_caller() {
-		if ( function_exists( 'wp_debug_backtrace_summary' ) ) {
-			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_wp_debug_backtrace_summary
-			return wp_debug_backtrace_summary( __CLASS__ );
-		}
 		return $this->wp_debug_backtrace_summary( __CLASS__ );
 	}
 
