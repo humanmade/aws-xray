@@ -44,7 +44,7 @@ class DB extends wpdb {
 			$trace = debug_backtrace();
 		}
 
-		$caller = [];
+		$caller      = [];
 		$check_class = ! is_null( $ignore_class );
 		$skip_frames++; // skip this function
 
