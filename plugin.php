@@ -32,7 +32,13 @@ function bootstrap() {
 	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
 	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
 	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
-	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() );
+	add_filter( 'hm_platform_cloudwatch_error_handler_error', __NAMESPACE__ . '\\on_cloudwatch_error_handler_error' );
+	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
+		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
+		if ( $current_errror_handler ) {
+			call_user_func_array( $current_errror_handler, func_get_args() );
+		}
+	} );
 	send_trace_to_daemon( get_in_progress_trace() );
 }
 
@@ -471,4 +477,16 @@ function get_error_type_for_error_number( $type ) : string {
 			return 'E_USER_DEPRECATED';
 	}
 	return '';
+}
+
+/**
+ * When a PHP error is going to be sent to CloudWatch, append the X-Ray
+ * Trace ID to it, so error logs can be tied to Xray.
+ *
+ * @param array $error
+ * @return array
+ */
+function on_cloudwatch_error_handler_error( array $error ) : array {
+	$error['trace_id'] = get_root_trace_id();
+	return $error;
 }
