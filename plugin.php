@@ -127,9 +127,9 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	return $url;
 }
 
-function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored ) {
+function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	$trace = [
-		'name'       => DB_HOST,
+		'name'       => $host ?: DB_HOST,
 		'id'         => bin2hex( random_bytes( 8 ) ),
 		'trace_id'   => get_root_trace_id(),
 		'parent_id'  => get_main_trace_id(),
@@ -139,7 +139,7 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 		'namespace'  => 'remote',
 		'sql'        => [
 			'user'            => DB_USER,
-			'url'             => DB_HOST,
+			'url'             => $host ?: DB_HOST,
 			'database_type'   => 'mysql',
 			'sanitized_query' => $query,
 		],
