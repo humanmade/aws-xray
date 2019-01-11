@@ -296,10 +296,10 @@ function get_end_trace() : array {
 	if ( ! $hm_platform_xray_errors ) {
 		$hm_platform_xray_errors = [];
 	}
-	$error_numbers = _pluck( $hm_platform_xray_errors, 'errno' );
-	$is_fatal = in_array( E_ERROR, $error_numbers, true );
+	$error_numbers        = _pluck( $hm_platform_xray_errors, 'errno' );
+	$is_fatal             = in_array( E_ERROR, $error_numbers, true );
 	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
-	$user = function_exists('get_current_user_id') ?? get_current_user_id();
+	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
@@ -402,11 +402,11 @@ function get_xhprof_trace() : array {
 
 	$nodes = [
 		(object) [
-		'name'       => 'main()',
-		'value'      => 1,
-		'children'   => [],
-		'start_time' => $hm_platform_xray_start_time,
-		'end_time'   => $hm_platform_xray_start_time,
+			'name'       => 'main()',
+			'value'      => 1,
+			'children'   => [],
+			'start_time' => $hm_platform_xray_start_time,
+			'end_time'   => $hm_platform_xray_start_time,
 		],
 	];
 
@@ -427,7 +427,7 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 
 	if ( $last_node && $last_node->name === $this_child ) {
 		$node = $last_node;
-		$node->value += ( $sample_duration / 1000 );
+		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
 		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
