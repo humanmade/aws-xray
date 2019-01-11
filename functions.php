@@ -297,9 +297,10 @@ function get_end_trace() : array {
 	if ( ! $hm_platform_xray_errors ) {
 		$hm_platform_xray_errors = [];
 	}
-	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
+	$error_numbers = _pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal = in_array( E_ERROR, $error_numbers, true );
 	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
+	$user = function_exists('get_current_user_id') ?? get_current_user_id();
 
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
@@ -307,7 +308,7 @@ function get_end_trace() : array {
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => microtime( true ),
-		'user'       => get_current_user_id(),
+		'user'       => $user,
 		'service'    => [
 			'version' => HM_DEPLOYMENT_REVISION,
 		],
@@ -490,4 +491,26 @@ function get_error_type_for_error_number( $type ) : string {
 function on_cloudwatch_error_handler_error( array $error ) : array {
 	$error['trace_id'] = get_root_trace_id();
 	return $error;
+}
+
+/*
+ * Partial extraction from wp_list_pluck. Extracted in the event the function
+ * hasn't yet been defined, such as when there is a fatal early in the boot
+ * process.
+ */
+function _pluck( $list, $field ) {
+	/*
+		* When index_key is not set for a particular item, push the value
+		* to the end of the stack. This is how array_column() behaves.
+		*/
+	$newlist = [];
+	foreach ( $list as $key => $value ) {
+		if ( is_object( $value ) ) {
+			$newlist[ $key ] = $value->$field;
+		} else {
+			$newlist[ $key ] = $value[ $field ];
+		}
+	}
+
+	return $newlist;
 }
