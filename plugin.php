@@ -29,7 +29,7 @@ bootstrap();
  * Bootstrapper for the plugin.
  */
 function bootstrap() {
-	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
+	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
 	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
 	add_filter( 'hm_platform_cloudwatch_error_handler_error', __NAMESPACE__ . '\\on_cloudwatch_error_handler_error' );
