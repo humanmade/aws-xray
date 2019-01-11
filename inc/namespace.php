@@ -426,7 +426,7 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 	$this_child = $children[0];
 
 	if ( $last_node && $last_node->name === $this_child ) {
-		$node = $last_node;
+		$node            = $last_node;
 		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
