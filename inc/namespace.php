@@ -5,7 +5,6 @@ namespace HM\Platform\XRay;
 use Exception;
 use function HM\Platform\get_aws_sdk;
 
-
 /*
  * Set initial values and register handlers
  */
@@ -21,7 +20,7 @@ function initialize() {
 		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 	}
 
-	ini_set( 'xhprof.sampling_interval', 5000 );
+	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
 	xhprof_sample_enable();
 
 	register_handlers();
@@ -81,7 +80,7 @@ function filter_mysql_query( $query ) {
 }
 
 function trace_requests_request( $url, $headers, $data, $method, $options ) {
-	$domain = parse_url( $url, PHP_URL_HOST );
+	$domain = parse_url( $url, PHP_URL_HOST ); // @codingStandardsIgnoreLine
 	$trace = [
 		'name'       => $domain,
 		'id'         => bin2hex( random_bytes( 8 ) ),
@@ -299,7 +298,7 @@ function get_end_trace() : array {
 	}
 	$error_numbers = _pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal = in_array( E_ERROR, $error_numbers, true );
-	$has_non_fatal_errors = !! array_diff( [ E_ERROR ], $error_numbers );
+	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user = function_exists('get_current_user_id') ?? get_current_user_id();
 
 	return [
@@ -401,13 +400,15 @@ function get_xhprof_trace() : array {
 
 	$time_seconds = $sample_interval / 1000000;
 
-	$nodes = [ (object) [
+	$nodes = [
+		(object) [
 		'name'       => 'main()',
 		'value'      => 1,
 		'children'   => [],
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => $hm_platform_xray_start_time,
-	] ];
+		],
+	];
 
 	foreach ( $stack as $time => $call_stack ) {
 		$call_stack = explode( '==>', $call_stack );
@@ -429,7 +430,7 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 		$node->value += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
-		$nodes[] = $node = (object) [
+		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
 			'name'       => $this_child,
 			'value'      => $sample_duration / 1000,
 			'children'   => [],
