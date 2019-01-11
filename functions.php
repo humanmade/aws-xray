@@ -7,7 +7,7 @@ use function HM\Platform\get_aws_sdk;
 
 
 /*
- * Set initial values and defaults
+ * Set initial values and register handlers
  */
 function initialize() {
 	$GLOBALS['hm_platform_xray_errors'] = [];
@@ -23,6 +23,8 @@ function initialize() {
 
 	ini_set( 'xhprof.sampling_interval', 5000 );
 	xhprof_sample_enable();
+
+	register_handlers();
 }
 
 /*
