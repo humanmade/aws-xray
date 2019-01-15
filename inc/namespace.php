@@ -23,13 +23,6 @@ function initialize() {
 	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
 	xhprof_sample_enable();
 
-	register_handlers();
-}
-
-/*
- * Register error handler and shutdown function
- */
-function register_handlers() {
 	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 
 	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
