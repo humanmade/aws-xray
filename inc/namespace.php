@@ -8,7 +8,7 @@ use function HM\Platform\get_aws_sdk;
 /*
  * Set initial values and register handlers
  */
-function initialize() {
+function bootstrap() {
 	$GLOBALS['hm_platform_xray_errors'] = [];
 
 	global $hm_platform_xray_start_time;
