@@ -9,7 +9,7 @@
 
 namespace HM\Platform\XRay;
 
-require_once __DIR__ . '/plugins/aws-xray/inc/namespace.php';
+require_once __DIR__ . '/inc/namespace.php';
 
 if ( ! is_bootstrapped() ) {
 	error_log( "AWS X-Ray has not been bootstrapped yet. Run HM\Platform\XRay\bootstrap() early in your application's boot to bootstrap." );
