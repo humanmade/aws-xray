@@ -272,7 +272,7 @@ function get_end_trace() : array {
 	}
 	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal = in_array( E_ERROR, $error_numbers, true );
-	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
+	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
