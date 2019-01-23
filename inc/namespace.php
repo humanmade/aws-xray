@@ -33,14 +33,6 @@ function bootstrap() {
 	} );
 
 	send_trace_to_daemon( get_in_progress_trace() );
-
-	global $hm_platform_xray_bootstrapped;
-	$hm_platform_xray_bootstrapped = true;
-}
-
-function is_bootstrapped() {
-	global $hm_platform_xray_bootstrapped;
-	return $hm_platform_xray_bootstrapped;
 }
 
 /**
