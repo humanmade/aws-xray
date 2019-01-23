@@ -250,6 +250,8 @@ function get_main_trace_id() : string {
 
 /**
  * Get the initial in progress trace for the start of the main segment.
+ * NOTE: This function is run before WordPress is bootstrapped, so don't use
+ * any WordPress functions here.
  */
 function get_in_progress_trace() : array {
 	global $hm_platform_xray_start_time;
