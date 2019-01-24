@@ -5,14 +5,33 @@ namespace HM\Platform\XRay;
 use Exception;
 use function HM\Platform\get_aws_sdk;
 
-/**
- * Bootstrapper for the plugin.
+/*
+ * Set initial values and register handlers
  */
 function bootstrap() {
-	add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown', 99 );
-	add_filter( 'query', __NAMESPACE__ . '\\filter_mysql_query' );
-	add_action( 'requests-requests.before_request', __NAMESPACE__ . '\\trace_requests_request', 10, 5 );
-	set_error_handler( __NAMESPACE__ . '\\error_handler', error_reporting() ); // @codingStandardsIgnoreLine
+	$GLOBALS['hm_platform_xray_errors'] = [];
+
+	global $hm_platform_xray_start_time;
+	if ( ! $hm_platform_xray_start_time ) {
+		$hm_platform_xray_start_time = microtime( true );
+	}
+
+	if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
+		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
+	}
+
+	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
+	xhprof_sample_enable();
+
+	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
+
+	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
+		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
+		if ( $current_errror_handler ) {
+			call_user_func_array( $current_errror_handler, func_get_args() );
+		}
+	} );
+
 	send_trace_to_daemon( get_in_progress_trace() );
 }
 
@@ -101,9 +120,9 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	return $url;
 }
 
-function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored ) {
+function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	$trace = [
-		'name'       => DB_HOST,
+		'name'       => $host ?: DB_HOST,
 		'id'         => bin2hex( random_bytes( 8 ) ),
 		'trace_id'   => get_root_trace_id(),
 		'parent_id'  => get_main_trace_id(),
@@ -113,7 +132,7 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 		'namespace'  => 'remote',
 		'sql'        => [
 			'user'            => DB_USER,
-			'url'             => DB_HOST,
+			'url'             => $host ?: DB_HOST,
 			'database_type'   => 'mysql',
 			'sanitized_query' => $query,
 		],
@@ -231,6 +250,8 @@ function get_main_trace_id() : string {
 
 /**
  * Get the initial in progress trace for the start of the main segment.
+ * NOTE: This function is run before WordPress is bootstrapped, so don't use
+ * any WordPress functions here.
  */
 function get_in_progress_trace() : array {
 	global $hm_platform_xray_start_time;
@@ -270,9 +291,10 @@ function get_end_trace() : array {
 	if ( ! $hm_platform_xray_errors ) {
 		$hm_platform_xray_errors = [];
 	}
-	$error_numbers = wp_list_pluck( $hm_platform_xray_errors, 'errno' );
-	$is_fatal = in_array( E_ERROR, $error_numbers, true );
+	$error_numbers        = _pluck( $hm_platform_xray_errors, 'errno' );
+	$is_fatal             = in_array( E_ERROR, $error_numbers, true );
 	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
+	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
@@ -280,7 +302,7 @@ function get_end_trace() : array {
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'end_time'   => microtime( true ),
-		'user'       => get_current_user_id(),
+		'user'       => $user,
 		'service'    => [
 			'version' => HM_DEPLOYMENT_REVISION,
 		],
@@ -380,7 +402,7 @@ function get_xhprof_trace() : array {
 			'children'   => [],
 			'start_time' => $hm_platform_xray_start_time,
 			'end_time'   => $hm_platform_xray_start_time,
-		]
+		],
 	];
 
 	foreach ( $stack as $time => $call_stack ) {
@@ -399,11 +421,11 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 	$this_child = $children[0];
 
 	if ( $last_node && $last_node->name === $this_child ) {
-		$node = $last_node;
-		$node->value += ( $sample_duration / 1000 );
+		$node            = $last_node;
+		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
-		$nodes[] = $node = (object) [ // @codingStandardsIgnoreLine
+		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
 			'name'       => $this_child,
 			'value'      => $sample_duration / 1000,
 			'children'   => [],
@@ -453,4 +475,38 @@ function get_error_type_for_error_number( $type ) : string {
 			return 'E_USER_DEPRECATED';
 	}
 	return '';
+}
+
+/**
+ * When a PHP error is going to be sent to CloudWatch, append the X-Ray
+ * Trace ID to it, so error logs can be tied to Xray.
+ *
+ * @param array $error
+ * @return array
+ */
+function on_cloudwatch_error_handler_error( array $error ) : array {
+	$error['trace_id'] = get_root_trace_id();
+	return $error;
+}
+
+/*
+ * Partial extraction from wp_list_pluck. Extracted in the event the function
+ * hasn't yet been defined, such as when there is a fatal early in the boot
+ * process.
+ */
+function _pluck( $list, $field ) {
+	/*
+		* When index_key is not set for a particular item, push the value
+		* to the end of the stack. This is how array_column() behaves.
+		*/
+	$newlist = [];
+	foreach ( $list as $key => $value ) {
+		if ( is_object( $value ) ) {
+			$newlist[ $key ] = $value->$field;
+		} else {
+			$newlist[ $key ] = $value[ $field ];
+		}
+	}
+
+	return $newlist;
 }
