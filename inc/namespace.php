@@ -62,10 +62,13 @@ function error_handler( int $errno, string $errstr, string $errfile = null, int 
 
 /**
  * Filter all queries via wpdb to add the filter.
+ *
+ * @param string $query
+ * @return string
  */
 function filter_mysql_query( $query ) {
-	// Don't add Trace ID to SEELCT queries as they will MISS in the MysQL query cache.
-	if ( stripos( $query, 'SELECT' ) === 0 ) {
+	// Don't add Trace ID to SELECT queries as they will MISS in the MysQL query cache.
+	if ( stripos( trim( $query ), 'SELECT' ) === 0 ) {
 		return $query;
 	}
 	$query .= ' # Trace ID: ' . get_root_trace_id();
