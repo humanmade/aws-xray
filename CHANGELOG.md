@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.1.1 - 2019-02-04
+
+- `SELECT` Queries with leading whitespace cause Trace ID to be added
+
 ## 1.1.0 - 2019-01-24
 
 - Use `register_shutdown_function` to capture fatal errors
