@@ -183,6 +183,10 @@ function send_trace_to_daemon( array $trace ) {
 	foreach ( $messages as $message ) {
 		$string = $header . "\n" . json_encode( $message );
 		$sent_bytes = socket_sendto( $socket, $string, mb_strlen( $string ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
+		if ( $sent_bytes === false ) {
+			$error = socket_last_error( $socket );
+			trigger_error( sprintf( 'Error sending trace to X-Ray daemon, due to error %d (%s) with trace: %s', $error, socket_strerror( $error ), $string ) );
+		}
 	}
 
 	socket_close( $socket );
@@ -192,8 +196,9 @@ function send_trace_to_daemon( array $trace ) {
  * To handle traces larger than 64kb we have to flatted out the array of subsegments when required.
  */
 function get_flattened_segments_from_trace( array $trace ) : array {
+	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
 	$segments = [];
-	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < 1024 ) {
+	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < $max_size ) {
 		return [ $trace ];
 	}
 
