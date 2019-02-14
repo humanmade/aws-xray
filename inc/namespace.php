@@ -179,7 +179,7 @@ function send_trace_to_aws( array $trace ) {
 function send_trace_to_daemon( array $trace ) {
 	$header = '{"format": "json", "version": 1}';
 	$messages = get_flattened_segments_from_trace( $trace );
-	$socket = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
+	$socket   = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
 	foreach ( $messages as $message ) {
 		$string = $header . "\n" . json_encode( $message ); // @codingStandardsIgnoreLine wp_json_encode not available.
 		$sent_bytes = socket_sendto( $socket, $string, mb_strlen( $string ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );

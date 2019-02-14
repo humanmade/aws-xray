@@ -1,6 +1,6 @@
 <?php
 
-namespace HM\Platform\XRay;
+namespace HM\Platform\XRay; // @codingStandardsIgnoreLine inc directory ok.
 
 use PHPUnit\Framework\TestCase;
 
