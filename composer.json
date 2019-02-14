@@ -1,0 +1,16 @@
+{
+    "name": "humanmade/aws-xray",
+    "description": "HM Platform AWS X-Ray Integration",
+    "type": "library",
+    "license": "GPL-v2.0+",
+    "authors": [
+        {
+            "name": "Joe Hoyle",
+            "email": "joehoyle@gmail.com"
+        }
+    ],
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "^8.0"
+    }
+}
