@@ -167,7 +167,7 @@ function send_trace_to_aws( array $trace ) {
 			'TraceSegmentDocuments' => [ json_encode( $trace ) ], // @codingStandardsIgnoreLine wp_json_encode not available.
 		]);
 	} catch ( Exception $e ) {
-		trigger_error( $e->getMessage(), E_USER_WARNING );
+		trigger_error( $e->getMessage(), E_USER_WARNING ); // @codingStandardsIgnoreLine trigger_error ok
 	}
 }
 
@@ -185,7 +185,7 @@ function send_trace_to_daemon( array $trace ) {
 		$sent_bytes = socket_sendto( $socket, $string, mb_strlen( $string ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
 		if ( $sent_bytes === false ) {
 			$error = socket_last_error( $socket );
-			trigger_error( sprintf( 'Error sending trace to X-Ray daemon, due to error %d (%s) with trace: %s', $error, socket_strerror( $error ), $string ) );
+			trigger_error( sprintf( 'Error sending trace to X-Ray daemon, due to error %d (%s) with trace: %s', $error, socket_strerror( $error ), $string ) ); // @codingStandardsIgnoreLine trigger_error ok
 		}
 	}
 
