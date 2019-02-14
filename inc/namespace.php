@@ -296,7 +296,7 @@ function get_end_trace() : array {
 	}
 	$error_numbers        = _pluck( $hm_platform_xray_errors, 'errno' );
 	$is_fatal             = in_array( E_ERROR, $error_numbers, true );
-	$has_non_fatal_errors = ! ! array_diff( [ E_ERROR ], $error_numbers );
+	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
 	return [
