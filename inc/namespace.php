@@ -165,10 +165,10 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 function send_trace_to_aws( array $trace ) {
 	try {
 		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments([
-			'TraceSegmentDocuments' => [ json_encode( $trace ) ],
+			'TraceSegmentDocuments' => [ json_encode( $trace ) ], // @codingStandardsIgnoreLine wp_json_encode not available.
 		]);
 	} catch ( Exception $e ) {
-		trigger_error( $e->getMessage(), E_USER_WARNING );
+		trigger_error( $e->getMessage(), E_USER_WARNING ); // @codingStandardsIgnoreLine trigger_error ok
 	}
 }
 
@@ -180,10 +180,14 @@ function send_trace_to_aws( array $trace ) {
 function send_trace_to_daemon( array $trace ) {
 	$header = '{"format": "json", "version": 1}';
 	$messages = get_flattened_segments_from_trace( $trace );
-	$socket = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
+	$socket   = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
 	foreach ( $messages as $message ) {
-		$string = $header . "\n" . json_encode( $message );
+		$string = $header . "\n" . json_encode( $message ); // @codingStandardsIgnoreLine wp_json_encode not available.
 		$sent_bytes = socket_sendto( $socket, $string, mb_strlen( $string ), 0, AWS_XRAY_DAEMON_IP_ADDRESS, 2000 );
+		if ( $sent_bytes === false ) {
+			$error = socket_last_error( $socket );
+			trigger_error( sprintf( 'Error sending trace to X-Ray daemon, due to error %d (%s) with trace: %s', $error, socket_strerror( $error ), $string ) ); // @codingStandardsIgnoreLine trigger_error ok
+		}
 	}
 
 	socket_close( $socket );
@@ -193,8 +197,9 @@ function send_trace_to_daemon( array $trace ) {
  * To handle traces larger than 64kb we have to flatted out the array of subsegments when required.
  */
 function get_flattened_segments_from_trace( array $trace ) : array {
+	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
 	$segments = [];
-	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < 1024 ) {
+	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < $max_size ) { // @codingStandardsIgnoreLine wp_json_encode not available.
 		return [ $trace ];
 	}
 
