@@ -3,6 +3,7 @@
 ## HEAD
 - Fix all requests showing as error ([#23](https://github.com/humanmade/aws-xray/pull/23))
 - Report errors when segments are too big for sending over UDP ([#26](https://github.com/humanmade/aws-xray/pull/26))
+- Track all AWS SDK requests in XRay ([#28](https://github.com/humanmade/aws-xray/pull/28))
 
 ## 1.1.1 - 2019-02-04
 

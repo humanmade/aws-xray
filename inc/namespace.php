@@ -4,6 +4,7 @@ namespace HM\Platform\XRay;
 
 use Exception;
 use function HM\Platform\get_aws_sdk;
+use GuzzleHttp\TransferStats;
 
 /*
  * Set initial values and register handlers
@@ -517,4 +518,74 @@ function _pluck( $list, $field ) {
 	}
 
 	return $newlist;
+}
+
+/**
+ * Add an 'on_stats' param to all Guzzle requests send via the AWS SDK.
+ *
+ * This enabled aws-xray to get data on all requests send with the SDK and report them
+ * as remote requests.
+ *
+ * @param array $params
+ * @return array
+ */
+function on_hm_platform_aws_sdk_params( array $params ) : array {
+	$params['http']['on_stats'] = __NAMESPACE__ . '\\on_aws_guzzle_request_stats';
+	return $params;
+}
+
+/**
+ * Callback function for GuzzleHTTP's `on_stats` param.
+ *
+ * This allows us to send all AWS SDK requests to xray.
+ *
+ * @param TransferStats $stats
+ */
+function on_aws_guzzle_request_stats( TransferStats $stats ) {
+	$code = $stats->hasResponse() ? $stats->getResponse()->getStatusCode() : null;
+
+	// For some services the header is requestid, for others: request-id.
+	$request_id = $stats->hasResponse() ? $stats->getResponse()->getHeader( 'x-amzn-requestid' ) : null;
+	if ( ! $request_id ) {
+		$stats->hasResponse() ? $stats->getResponse()->getHeader( 'x-amzn-request-id' ) : null;
+	}
+	$trace = [
+		'name'         => $stats->getRequest()->getUri()->getHost(),
+		'id'           => bin2hex( random_bytes( 8 ) ),
+		'trace_id'     => get_root_trace_id(),
+		'parent_id'    => get_main_trace_id(),
+		'type'         => 'subsegment',
+		'start_time'   => microtime( true ) - $stats->getHandlerStat( 'total_time' ),
+		'end_time'     => microtime( true ),
+		'namespace'    => 'remote',
+		'http'         => [
+			'request'     => [
+				'method'     => $stats->getRequest()->getMethod(),
+				'url'        => $stats->getHandlerStat( 'url' ),
+				'user_agent' => $stats->getRequest()->getHeader( 'user-agent' )[0],
+			],
+			'response'    => [
+				'status'     => $code,
+			],
+		],
+		'aws'          => [
+			'request_id'  => $request_id ? $request_id[0] : null,
+			'operation'   => explode( '.', $stats->getRequest()->getHeader( 'x-amz-target' )[0] )[1],
+		],
+		'in_progress'  => false,
+		'fault'        => $code > 499,
+		'error'        => $code >= 400 && $code <= 499,
+	];
+
+	if ( $code >= 400 ) {
+		$trace['cause'] = [
+			'exceptions' => [
+				[
+					'id'      => bin2hex( random_bytes( 8 ) ),
+					'message' => (string) $stats->getResponse()->getBody(),
+				],
+			],
+		];
+	}
+	send_trace_to_daemon( $trace );
 }
