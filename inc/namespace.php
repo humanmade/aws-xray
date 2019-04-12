@@ -5,6 +5,7 @@ namespace HM\Platform\XRay;
 use Exception;
 use function HM\Platform\get_aws_sdk;
 use GuzzleHttp\TransferStats;
+use WP_Object_Cache;
 
 /*
  * Set initial values and register handlers
@@ -97,9 +98,13 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	];
 	send_trace_to_daemon( $trace );
 	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
+		global $xray_time_spent_in_remote_requests;
 		remove_action( 'http_api_debug', $on_complete );
 		$trace['in_progress'] = false;
 		$trace['end_time'] = microtime( true );
+
+		$xray_time_spent_in_remote_requests += $trace['end_time'] - $trace['end_time'];
+
 		if ( is_wp_error( $response ) ) {
 			$trace['fault'] = true;
 			$trace['cause'] = [
@@ -305,6 +310,12 @@ function get_end_trace() : array {
 	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
+	$stats = [
+		'object_cache' => get_object_cache_stats(),
+		'db'           => get_wpdb_stats(),
+		'remote'       => get_remote_requests_stats(),
+	];
+
 	return [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
@@ -331,6 +342,7 @@ function get_end_trace() : array {
 			'$_POST'    => $_POST,
 			'$_COOKIE'  => $_COOKIE,
 			'$_SERVER'  => $_SERVER,
+			'stats'     => $stats,
 		],
 		'fault' => $is_fatal,
 		'error' => $has_non_fatal_errors,
@@ -542,6 +554,8 @@ function on_hm_platform_aws_sdk_params( array $params ) : array {
  * @param TransferStats $stats
  */
 function on_aws_guzzle_request_stats( TransferStats $stats ) {
+	global $xray_time_spent_in_remote_requests;
+	$xray_time_spent_in_remote_requests += $stats->getHandlerStat( 'total_time' );
 	$code = $stats->hasResponse() ? $stats->getResponse()->getStatusCode() : null;
 
 	// For some services the header is requestid, for others: request-id.
@@ -588,4 +602,49 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 		];
 	}
 	send_trace_to_daemon( $trace );
+}
+
+function get_wpdb_stats() : array {
+	global $wpdb;
+	$stats = [];
+
+	if ( isset( $wpdb->time_spent ) ) {
+		$stats['time'] = $wpdb->time_spent;
+	}
+
+	return $stats;
+}
+
+function get_remote_requests_stats() {
+	global $xray_time_spent_in_remote_requests;
+	return [
+		'time' => $xray_time_spent_in_remote_requests,
+	];
+}
+
+function get_object_cache_stats() : array {
+	global $wp_object_cache;
+	if ( ! $wp_object_cache || ! $wp_object_cache instanceof WP_Object_Cache ) {
+		return [];
+	}
+
+	$stats = [];
+
+	if ( isset( $wp_object_cache->cache_hits ) ) {
+		$stats['hits'] = $wp_object_cache->cache_hits;
+	}
+
+	if ( isset( $wp_object_cache->cache_misses ) ) {
+		$stats['misses'] = $wp_object_cache->cache_misses;
+	}
+
+	if ( isset( $wp_object_cache->redis_calls ) ) {
+		$stats['remote_calls'] = $wp_object_cache->redis_calls;
+	}
+
+	if ( isset( $wp_object_cache->redis ) && isset( $wp_object_cache->redis->time_spent ) ) {
+		$stats['time'] = $wp_object_cache->redis->time_spent;
+	}
+
+	return $stats;
 }

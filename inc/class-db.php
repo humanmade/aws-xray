@@ -5,12 +5,21 @@ namespace HM\Platform\XRay;
 use wpdb;
 
 class DB extends wpdb {
+	/**
+	 * Track total time waiting for database responses;
+	 *
+	 * @var integer
+	 */
+	public $time_spent = 0;
+
 	public function query( $query ) {
 		$start = microtime( true );
 		$result = parent::query( $query );
+		$end = microtime( true );
 		if ( function_exists( __NAMESPACE__ . '\\trace_wpdb_query' ) ) {
-			trace_wpdb_query( $query, $start, microtime( true ), $result === false ? $this->last_error : null );
+			trace_wpdb_query( $query, $start, $end, $result === false ? $this->last_error : null );
 		}
+		$this->time_spent += $end - $start;
 		return $result;
 	}
 
