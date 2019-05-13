@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.1.3 - 2019-05-13
+
+- Use shutdown hook instead of `register_shutdown_runction` #32
+
 ## 1.1.2 - 2019-03-06
 
 - Fix all requests showing as error ([#23](https://github.com/humanmade/aws-xray/pull/23))
