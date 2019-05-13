@@ -24,7 +24,11 @@ function bootstrap() {
 	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
 	xhprof_sample_enable();
 
-	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
+	if ( function_exists( 'add_action' ) ) {
+		add_action( 'shutdown',  __NAMESPACE__ . '\\on_shutdown' );
+	} else {
+		register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
+	}
 
 	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
