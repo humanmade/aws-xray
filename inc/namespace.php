@@ -44,7 +44,12 @@ function bootstrap() {
  * Shutdown callback to process the trace once everything has finished.
  */
 function on_shutdown() {
-	if ( function_exists( 'fastcgi_finish_request' ) ) {
+	$use_fastcgi_finish_request = function_exists( 'fastcgi_finish_request' );
+	if ( function_exists( 'apply_filters' ) ) {
+		$use_fastcgi_finish_request = apply_filters( 'aws_xray.use_fastcgi_finish_request', $use_fastcgi_finish_request );
+	}
+
+	if ( $use_fastcgi_finish_request ) {
 		fastcgi_finish_request();
 	}
 
