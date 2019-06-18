@@ -3,8 +3,12 @@
 namespace HM\Platform\XRay;
 
 use Exception;
+use ExcimerProfiler;
+use ExcimerTimer;
 use function HM\Platform\get_aws_sdk;
 use GuzzleHttp\TransferStats;
+
+const SAMPLE_INTERVAL = 0.05; // seconds
 
 /*
  * Set initial values and register handlers
@@ -20,9 +24,15 @@ function bootstrap() {
 	if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
 		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 	}
-
-	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
-	xhprof_sample_enable();
+	if ( use_excimer() ) {
+		$excimer = get_excimer_profiler();
+		$excimer->setEventType( EXCIMER_REAL );
+		$excimer->setPeriod( SAMPLE_INTERVAL );
+		$excimer->start();
+	} else {
+		ini_set( 'xhprof.sampling_interval', SAMPLE_INTERVAL * 1000000 ); // @codingStandardsIgnoreLine
+		xhprof_sample_enable();
+	}
 
 	if ( function_exists( 'add_action' ) ) {
 		add_action( 'shutdown',  __NAMESPACE__ . '\\on_shutdown' );
@@ -58,7 +68,12 @@ function on_shutdown() {
 	if ( $last_error ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
-	send_trace_to_daemon( get_xhprof_xray_trace() );
+
+	$profile = get_xray_profile();
+	if ( $profile ) {
+		send_trace_to_daemon( $profile );
+	}
+
 	send_trace_to_daemon( get_end_trace() );
 }
 
@@ -361,20 +376,57 @@ function get_end_trace() : array {
 	];
 }
 
-function get_xhprof_xray_trace() : array {
-	$xhprof_trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', get_xhprof_trace() );
-	if ( ! $xhprof_trace ) {
-		return [];
+function get_excimer_profile() : array {
+	global $hm_platform_xray_start_time;
+	$excimer = get_excimer_profiler();
+	$end_time = microtime( true );
+	$excimer->stop();
+	$trace = $excimer->flush();
+	$frames = explode( "\n", $trace->formatCollapsed() );
+	$sample_interval = SAMPLE_INTERVAL;
+	$time = $hm_platform_xray_start_time;
+
+	$nodes = [];
+
+	foreach ( $frames as $call_stack ) {
+		if ( ! $call_stack ) {
+			continue;
+		}
+		$call_stack = explode( ';', trim( $call_stack, ';' ) );
+		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time, $sample_interval );
+		$time += $sample_interval;
 	}
-	$xhprof_trace = $xhprof_trace[0];
-	$xhprof_trace['trace_id'] = get_root_trace_id();
-	$xhprof_trace['name'] = 'xhprof';
-	$xhprof_trace['parent_id'] = get_main_trace_id();
-	$xhprof_trace['type'] = 'subsegment';
-	return $xhprof_trace;
+
+	return [
+		(object) [
+			'name'       => 'main()',
+			'value'      => 1,
+			'children'   => $nodes,
+			'start_time' => $hm_platform_xray_start_time,
+			'end_time'   => $end_time,
+		],
+	];
 }
 
-function get_xray_segmant_for_xhprof_trace( $item ) : array {
+function get_xray_profile() : array {
+	if ( use_excimer() ) {
+		$trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_trace', get_excimer_profile() );
+	} else {
+		$trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_trace', get_xhprof_profile() );
+	}
+
+	if ( ! $trace ) {
+		return [];
+	}
+	$trace = $trace[0];
+	$trace['trace_id'] = get_root_trace_id();
+	$trace['name'] = 'xhprof';
+	$trace['parent_id'] = get_main_trace_id();
+	$trace['type'] = 'subsegment';
+	return $trace;
+}
+
+function get_xray_segmant_for_trace( $item ) : array {
 	return [
 		'name'        => preg_replace( '~[^\w\s_\.:/%&#=+\-@]~u', '', $item->name ),
 		'subsegments' => array_map( __FUNCTION__, $item->children ),
@@ -384,7 +436,7 @@ function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	];
 }
 
-function get_xhprof_trace() : array {
+function get_xhprof_profile() : array {
 	if ( ! function_exists( 'xhprof_sample_disable' ) ) {
 		return [];
 	}
@@ -443,6 +495,10 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
+		if ( ! $this_child ) {
+			print_r( $children );
+			exit;
+		}
 		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
 			'name'       => $this_child,
 			'value'      => $sample_duration / 1000,
@@ -597,4 +653,26 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 		];
 	}
 	send_trace_to_daemon( $trace );
+}
+
+/**
+ * Check whether to use PHP Excimer for profiling.
+ *
+ * @return boolean
+ */
+function use_excimer() : bool {
+	return class_exists( 'ExcimerProfiler' );
+}
+
+/**
+ * Get the PHP Excimer profiler object
+ *
+ * @return ExcimerProfiler
+ */
+function get_excimer_profiler() : ExcimerProfiler {
+	static $excimer = null;
+	if ( ! $excimer ) {
+		$excimer = new ExcimerProfiler;
+	}
+	return $excimer;
 }
