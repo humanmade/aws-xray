@@ -625,7 +625,7 @@ function redact_metadata( $metadata ) {
 		],
 	];
 
-	$redact_keys = array_merge( $redact_keys_default, $redact_keys_required );
+	$redact_keys = array_merge_recursive( $redact_keys_default, $redact_keys_required );
 
 	$redacted = $metadata;
 	foreach ( $redact_keys as $super => $keys ) {
