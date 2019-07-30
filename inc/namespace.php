@@ -640,5 +640,9 @@ function redact_metadata( $metadata ) {
 		}
 	}
 
+	if ( function_exists( 'apply_filters' ) ) {
+		$redacted = apply_filters( 'aws_xray.redact_metadata', $redacted );
+	}
+
 	return $redacted;
 }
