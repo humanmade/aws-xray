@@ -25,7 +25,7 @@ function bootstrap() {
 	xhprof_sample_enable();
 
 	if ( function_exists( 'add_action' ) ) {
-		add_action( 'shutdown',  __NAMESPACE__ . '\\on_shutdown' );
+		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown' );
 	} else {
 		register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 	}
@@ -35,7 +35,7 @@ function bootstrap() {
 		if ( $current_errror_handler ) {
 			call_user_func_array( $current_errror_handler, func_get_args() );
 		}
-	} );
+	});
 
 	send_trace_to_daemon( get_in_progress_trace() );
 }
@@ -173,9 +173,11 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
  */
 function send_trace_to_aws( array $trace ) {
 	try {
-		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments([
+		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments(
+			[
 			'TraceSegmentDocuments' => [ json_encode( $trace ) ], // @codingStandardsIgnoreLine wp_json_encode not available.
-		]);
+			]
+		);
 	} catch ( Exception $e ) {
 		trigger_error( $e->getMessage(), E_USER_WARNING ); // @codingStandardsIgnoreLine trigger_error ok
 	}
@@ -237,11 +239,13 @@ function get_root_trace_id() : string {
 	}
 	if ( isset( $_SERVER['HTTP_X_AMZN_TRACE_ID'] ) ) {
 		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] );
-		$traces = array_reduce( $traces, function ( $traces, $trace ) {
-			$parts = explode( '=', $trace );
-			$traces[ $parts[0] ] = $parts[1];
-			return $traces;
-		}, [] );
+		$traces = array_reduce(
+			$traces, function ( $traces, $trace ) {
+				$parts = explode( '=', $trace );
+				$traces[ $parts[0] ] = $parts[1];
+				return $traces;
+			}, []
+		);
 
 		if ( isset( $traces['Self'] ) ) {
 			$trace_id = $traces['Self'];
@@ -289,14 +293,15 @@ function get_in_progress_trace() : array {
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
 			],
 		],
-		'metadata' => [
-			'$_GET'     => $_GET,
-			'$_POST'    => $_POST,
-			'$_COOKIE'  => $_COOKIE,
-			'$_SERVER'  => $_SERVER,
-		],
 		'in_progress' => true,
 	];
+	$metadata = [
+		'$_GET'     => $_GET,
+		'$_POST'    => $_POST,
+		'$_COOKIE'  => $_COOKIE,
+		'$_SERVER'  => $_SERVER,
+	];
+	$trace['metdata'] = redact_metadata( $metadata );
 
 	return $trace;
 }
@@ -314,7 +319,7 @@ function get_end_trace() : array {
 	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
-	return [
+	$trace = [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
@@ -335,30 +340,36 @@ function get_end_trace() : array {
 				'status' => http_response_code(),
 			],
 		],
-		'metadata' => [
-			'$_GET'     => $_GET,
-			'$_POST'    => $_POST,
-			'$_COOKIE'  => $_COOKIE,
-			'$_SERVER'  => $_SERVER,
-		],
 		'fault' => $is_fatal,
 		'error' => $has_non_fatal_errors,
 		'cause' => $hm_platform_xray_errors ? [
-			'exceptions' => array_map( function ( $error ) {
-				return [
-					'message' => $error['errstr'],
-					'type' => get_error_type_for_error_number( $error['errno'] ),
-					'stack' => [
-						[
-							'path' => $error['errfile'],
-							'line' => $error['errline'],
-						],
-					],
-				];
-			}, array_values( $hm_platform_xray_errors ) ),
+			'exceptions' => array_map(
+				function ( $error ) {
+						return [
+							'message' => $error['errstr'],
+							'type' => get_error_type_for_error_number( $error['errno'] ),
+							'stack' => [
+								[
+									'path' => $error['errfile'],
+									'line' => $error['errline'],
+								],
+							],
+						];
+				}, array_values( $hm_platform_xray_errors )
+			),
 		] : null,
 		'in_progress' => false,
 	];
+
+	$metadata = [
+		'$_GET'     => $_GET,
+		'$_POST'    => $_POST,
+		'$_COOKIE'  => $_COOKIE,
+		'$_SERVER'  => $_SERVER,
+	];
+
+	$trace['metdata'] = redact_metadata( $metadata );
+	return $trace;
 }
 
 function get_xhprof_xray_trace() : array {
@@ -404,11 +415,13 @@ function get_xhprof_trace() : array {
 		$pluck_every_n = ceil( count( $stack ) / $max_frames );
 		$sample_interval = ceil( $sample_interval * ( count( $stack ) / $max_frames ) );
 
-		$stack = array_filter( $stack, function ( $value ) use ( $pluck_every_n ) : bool {
-			static $frame_number = -1;
-			$frame_number++;
-			return $frame_number % $pluck_every_n === 0;
-		} );
+		$stack = array_filter(
+			$stack, function ( $value ) use ( $pluck_every_n ) : bool {
+				static $frame_number = -1;
+				$frame_number++;
+				return $frame_number % $pluck_every_n === 0;
+			}
+		);
 	}
 
 	$time_seconds = $sample_interval / 1000000;
@@ -597,4 +610,39 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 		];
 	}
 	send_trace_to_daemon( $trace );
+}
+
+function redact_metadata( $metadata ) {
+
+	$redact_keys_default = [];
+	if ( function_exists( 'apply_filters' ) ) {
+		$redact_keys_default = apply_filters( 'aws_xray.redact_metadata_keys', $redact_keys_default );
+	}
+
+	$redact_keys_required = [
+		'$_POST' => [
+			'pwd',
+		],
+	];
+
+	$redact_keys = array_merge_recursive( $redact_keys_default, $redact_keys_required );
+
+	$redacted = $metadata;
+	foreach ( $redact_keys as $super => $keys ) {
+		if ( ! isset( $metadata[ $super ] ) ) {
+			continue;
+		}
+
+		foreach ( $keys as $key ) {
+			if ( isset( $metadata[ $super ][ $key ] ) ) {
+				$redacted[ $super ][ $key ] = 'REDACTED';
+			}
+		}
+	}
+
+	if ( function_exists( 'apply_filters' ) ) {
+		$redacted = apply_filters( 'aws_xray.redact_metadata', $redacted );
+	}
+
+	return $redacted;
 }
