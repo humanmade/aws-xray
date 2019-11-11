@@ -624,12 +624,11 @@ jQuery( document ).ready( function() {
 		var data = segmentToItem( JSON.parse( el.innerHTML ) );
 		el.innerHTML = '';
 		var flamegraph = flameGraph()
-			.width( el.parentNode.getBoundingClientRect().width )
+			.width( 940 )
 			.cellHeight( 18 );
 
 		d3.select( el )
 			.datum( data )
 			.call( flamegraph );
 	});
-
 });

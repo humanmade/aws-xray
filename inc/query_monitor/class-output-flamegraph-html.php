@@ -38,9 +38,9 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 
 	public function panel_menu( array $menu ) : array {
 		$menu['aws-xray']['children'][] = [
-			'title' => '└ ' . 'Flamegraph',
+			'title' => 'Flamegraph',
 			'id'    => 'query-monitor-aws-xray-flamegraph',
-			'href'    => '#qm-aws-xray-flamegraph',
+			'href'  => '#qm-aws-xray-flamegraph',
 
 		];
 		return $menu;
