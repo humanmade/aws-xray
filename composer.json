@@ -2,7 +2,7 @@
     "name": "humanmade/aws-xray",
     "description": "HM Platform AWS X-Ray Integration",
     "type": "library",
-    "license": "GPL-v2.0+",
+    "license": "GPL-2.0-or-later",
     "authors": [
         {
             "name": "Joe Hoyle",
