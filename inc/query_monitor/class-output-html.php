@@ -17,14 +17,15 @@ class Output_Html extends QM_Output_Html {
 		?>
 		<?php $this->before_tabular_output(); ?>
 		<caption>
-			<h2>Trace ID: <?php echo esc_html( get_root_trace_id() ) ?></h2>
+			<?php /* translators: Trace ID */ ?>
+			<h2><?php printf( esc_html__( 'Trace ID: %s', 'aws-xray' ), get_root_trace_id() ); ?></h2>
 		</caption>
 		<thead>
 			<tr>
-				<th>Segment Name</th>
-				<th>In Progress</th>
-				<th>Time</th>
-				<th>Segment</th>
+				<th><?php echo esc_html__( 'Segment Name', 'aws-xray' ) ?></th>
+				<th><?php echo esc_html__( 'In Progress', 'aws-xray' ) ?></th>
+				<th><?php echo esc_html__( 'Time', 'aws-xray' ) ?></th>
+				<th><?php echo esc_html__( 'Segment', 'aws-xray' ) ?></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -41,7 +42,7 @@ class Output_Html extends QM_Output_Html {
 						<ol class="qm-toggler">
 							<?php echo $this->build_toggler() ?>
 							<div class="qm-toggled">
-								<pre><?php print_r( $trace ) ?></pre>
+								<pre><?php esc_html( print_r( $trace, true ) ) ?></pre>
 							</div>
 						</ol>
 					</td>
@@ -53,7 +54,7 @@ class Output_Html extends QM_Output_Html {
 	}
 
 	public function panel_menu( array $menu ) : array {
-		$menu['aws-xray']['title'] = 'AWS X-Ray';
+		$menu['aws-xray']['title'] = __( 'AWS X-Ray', 'aws-xray' );
 		$menu['aws-xray']['href'] = '#qm-aws-xray';
 		return $menu;
 	}

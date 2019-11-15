@@ -57,5 +57,5 @@ function register_qm_output_html( array $output ) : array {
  * Enqueue the assets for the Query Monitor custom panel.
  */
 function enqueue_assets() {
-	wp_enqueue_script( 'aws-xray-flamegraph', plugin_dir_url( dirname( __FILE__, 2 ) ) . 'assets/flamegraph.js', [] );
+	wp_enqueue_script( 'aws-xray-flamegraph', plugin_dir_url( dirname( __FILE__, 2 ) ) . 'assets/flamegraph.js', [], '2019-11-13' );
 }

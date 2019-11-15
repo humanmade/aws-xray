@@ -28,7 +28,8 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		?>
 		<?php $this->before_non_tabular_output( 'qm-aws-xray-flamegraph' ); ?>
 		<caption>
-			<h2>Sampled Profile (5ms intervals)</h2>
+			<?php /* translators: Number of miliseconds/ */ ?>
+			<h2><?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?></h2>
 		</caption>
 		<div class="aws-xray-flamegraph"><?php echo wp_json_encode( $xhprof ) ?></div>
 		<?php
@@ -36,9 +37,15 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		$this->after_non_tabular_output();
 	}
 
+	/**
+	 * Add the Flamegraph child menu item to the Query Monitor panel menu.
+	 *
+	 * @param array $menu
+	 * @return array
+	 */
 	public function panel_menu( array $menu ) : array {
 		$menu['aws-xray']['children'][] = [
-			'title' => 'Flamegraph',
+			'title' => __( 'Flamegraph', 'aws-xray' ),
 			'id'    => 'query-monitor-aws-xray-flamegraph',
 			'href'  => '#qm-aws-xray-flamegraph',
 		];
