@@ -28,7 +28,7 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		?>
 		<?php $this->before_non_tabular_output( 'qm-aws-xray-flamegraph' ); ?>
 		<caption>
-			<?php /* translators: Number of miliseconds/ */ ?>
+			<?php /* translators: %d = Number of milliseconds */ ?>
 			<h2><?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?></h2>
 		</caption>
 		<div class="aws-xray-flamegraph"><?php echo wp_json_encode( $xhprof ) ?></div>
