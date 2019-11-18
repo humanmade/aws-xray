@@ -21,8 +21,10 @@ function bootstrap() {
 		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 	}
 
-	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
-	xhprof_sample_enable();
+	if ( function_exists( 'xhprof_sample_enable' ) ) {
+		ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
+		xhprof_sample_enable();
+	}
 
 	if ( function_exists( 'add_action' ) ) {
 		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown' );
@@ -58,7 +60,11 @@ function on_shutdown() {
 	if ( $last_error ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
-	send_trace_to_daemon( get_xhprof_xray_trace() );
+
+	if ( function_exists( 'xhprof_sample_enable' ) ) {
+		send_trace_to_daemon( get_xhprof_xray_trace() );
+	}
+
 	send_trace_to_daemon( get_end_trace() );
 }
 
@@ -189,6 +195,8 @@ function send_trace_to_aws( array $trace ) {
  * @param array $trace
  */
 function send_trace_to_daemon( array $trace ) {
+	do_action( 'aws_xray.send_trace_to_daemon', $trace );
+
 	$header = '{"format": "json", "version": 1}';
 	$messages = get_flattened_segments_from_trace( $trace );
 	$socket   = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
