@@ -3,8 +3,8 @@
 /**
  * Plugin Name: AWS X-Ray
  * Description: HM Platform plugin for sending data to AWS X-Ray
- * Author: Human made
- * Version: 1.1.0
+ * Author: Human Made
+ * Version: 1.3.0
  */
 
 namespace HM\Platform\XRay;
