@@ -291,7 +291,7 @@ function get_in_progress_trace() : array {
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'service'    => [
-			'version' => HM_DEPLOYMENT_REVISION,
+			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
 		'http'       => [
