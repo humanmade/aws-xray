@@ -1,5 +1,13 @@
 # Change Log
 
+## 1.2.2 - 2019-11-28
+
+- Fix undefined HM_DEPLOYMENT_REVISION constant [#40](https://github.com/humanmade/aws-xray/pull/40)
+
+## 1.2.1 - 2019-11-22
+
+- Fix undefined HM_DEPLOYMENT_REVISION constant [#39](https://github.com/humanmade/aws-xray/pull/39)
+
 ## 1.2.0 - 2019-11-18
 
 - Add Query Monitor Support [#36](https://github.com/humanmade/aws-xray/pull/36)
