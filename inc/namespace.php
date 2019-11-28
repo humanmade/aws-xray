@@ -335,7 +335,7 @@ function get_end_trace() : array {
 		'end_time'   => microtime( true ),
 		'user'       => $user,
 		'service'    => [
-			'version' => HM_DEPLOYMENT_REVISION,
+			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
 		'http'       => [
