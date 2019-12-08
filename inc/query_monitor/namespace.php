@@ -24,6 +24,8 @@ function register_qm_collector( array $collectors ) : array {
 	// enqueueing them on all pages.
 	add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
 	add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
+	add_action( 'login_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
+	add_action( 'enqueue_embed_scripts', __NAMESPACE__ . '\\enqueue_assets' );
 
 	// Disable Xray ending the request on processing data.
 	add_filter( 'aws_xray.use_fastcgi_finish_request', '__return_false' );
