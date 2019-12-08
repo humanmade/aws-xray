@@ -3,6 +3,7 @@
 namespace HM\Platform\XRay\Query_Monitor;
 
 use QM_Collectors;
+use QM_Dispatchers;
 
 function bootstrap() {
 	add_filter( 'qm/outputter/html', __NAMESPACE__ . '\\register_qm_output_html' );
@@ -17,15 +18,11 @@ function bootstrap() {
  */
 function register_qm_collector( array $collectors ) : array {
 	// When the collector registration happens, also enquque the scripts.
-	// There's no hook in Query Monitor to output the scripts / assets on
-	// pages only where it is used. As a workaround, we enqueue them on any
-	// page where the QM Collectors are initiated. This makes this function
-	// have side-effects which is not good. But this is still better than
-	// enqueueing them on all pages.
-	add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
-	add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
-	add_action( 'login_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
-	add_action( 'enqueue_embed_scripts', __NAMESPACE__ . '\\enqueue_assets' );
+	// This is checked for use in maybe_enqueue_assets.
+	add_action( 'wp_enqueue_scripts', __NAMESPACE__ . '\\maybe_enqueue_assets' );
+	add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\\maybe_enqueue_assets' );
+	add_action( 'login_enqueue_scripts', __NAMESPACE__ . '\\maybe_enqueue_assets' );
+	add_action( 'enqueue_embed_scripts', __NAMESPACE__ . '\\maybe_enqueue_assets' );
 
 	// Disable Xray ending the request on processing data.
 	add_filter( 'aws_xray.use_fastcgi_finish_request', '__return_false' );
@@ -58,6 +55,12 @@ function register_qm_output_html( array $output ) : array {
 /**
  * Enqueue the assets for the Query Monitor custom panel.
  */
-function enqueue_assets() {
+function maybe_enqueue_assets() {
+	/** @var QM_Dispatcher_Html $html_dispatcher */
+	$html_dispatcher = QM_Dispatchers::get( 'html' );
+	if ( ! $html_dispatcher || ! $html_dispatcher->user_can_view() ) {
+		return;
+	}
+
 	wp_enqueue_script( 'aws-xray-flamegraph', plugin_dir_url( dirname( __FILE__, 2 ) ) . 'assets/flamegraph.js', [], '2019-11-13' );
 }
