@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.2.3 - 2019-12-09
+
+- Only load JS when needed [#43](https://github.com/humanmade/aws-xray/pull/43)
+
 ## 1.2.2 - 2019-11-28
 
 - Fix undefined HM_DEPLOYMENT_REVISION constant [#40](https://github.com/humanmade/aws-xray/pull/40)
