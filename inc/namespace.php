@@ -2,8 +2,6 @@
 
 namespace HM\Platform\XRay;
 
-use Exception;
-use function HM\Platform\get_aws_sdk;
 use GuzzleHttp\TransferStats;
 
 /*
@@ -168,25 +166,6 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 		];
 	}
 	send_trace_to_daemon( $trace );
-}
-
-/**
- * Send a XRay trace document to AWS using the HTTP API.
- *
- * This is slower than using the XRay Daemon, but more convenient.
- *
- * @param array $trace
- */
-function send_trace_to_aws( array $trace ) {
-	try {
-		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments(
-			[
-			'TraceSegmentDocuments' => [ json_encode( $trace ) ], // @codingStandardsIgnoreLine wp_json_encode not available.
-			]
-		);
-	} catch ( Exception $e ) {
-		trigger_error( $e->getMessage(), E_USER_WARNING ); // @codingStandardsIgnoreLine trigger_error ok
-	}
 }
 
 /**
