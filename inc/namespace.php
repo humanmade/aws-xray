@@ -30,10 +30,10 @@ function bootstrap() {
 		register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 	}
 
-	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
+	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) { // @codingStandardsIgnoreLine
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
-		if ( $current_errror_handler ) {
-			call_user_func_array( $current_errror_handler, func_get_args() );
+		if ( $current_error_handler ) {
+			call_user_func_array( $current_error_handler, func_get_args() );
 		}
 	});
 
