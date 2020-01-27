@@ -422,7 +422,7 @@ function get_xhprof_trace() : array {
 			'value'      => 1,
 			'children'   => [],
 			'start_time' => $hm_platform_xray_start_time,
-			'end_time'   => $hm_platform_xray_start_time,
+			'end_time'   => $end_time,
 		],
 	];
 
