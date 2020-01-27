@@ -398,7 +398,7 @@ function get_xhprof_xray_trace() : array {
 
 function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	return [
-		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\-@]~u', '', $item->name ),
+		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\\\\\-@]~u', '', $item->name ),
 		'subsegments' => array_map( __FUNCTION__, $item->children ),
 		'id'          => bin2hex( random_bytes( 8 ) ),
 		'start_time'  => $item->start_time,
