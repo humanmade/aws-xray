@@ -42,7 +42,7 @@ class Output_Html extends QM_Output_Html {
 						<ol class="qm-toggler">
 							<?php echo $this->build_toggler() ?>
 							<div class="qm-toggled">
-								<pre><?php esc_html( print_r( $trace, true ) ) ?></pre>
+								<pre><?php echo esc_html( print_r( $trace, true ) ) ?></pre>
 							</div>
 						</ol>
 					</td>
