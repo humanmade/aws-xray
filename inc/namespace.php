@@ -174,13 +174,12 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
  * @param array $trace
  */
 function send_trace_to_daemon( array $trace ) {
+	if ( function_exists( 'apply_filters' ) ) {
+		$trace = apply_filters( 'aws_xray.trace_to_daemon', $trace );
+	}
 
 	if ( function_exists( 'do_action' ) ) {
 		do_action( 'aws_xray.send_trace_to_daemon', $trace );
-	}
-
-	if ( function_exists( 'apply_filters' ) ) {
-		$trace = apply_filters( 'aws_xray.trace_to_daemon', $trace );
 	}
 
 	$header = '{"format": "json", "version": 1}';
