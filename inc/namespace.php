@@ -179,6 +179,10 @@ function send_trace_to_daemon( array $trace ) {
 		do_action( 'aws_xray.send_trace_to_daemon', $trace );
 	}
 
+	if ( function_exists( 'apply_filters' ) ) {
+		$trace = apply_filters( 'aws_xray.trace_to_daemon', $trace );
+	}
+
 	$header = '{"format": "json", "version": 1}';
 	$messages = get_flattened_segments_from_trace( $trace );
 	$socket   = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
