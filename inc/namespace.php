@@ -291,7 +291,7 @@ function get_in_progress_trace() : array {
 		'$_COOKIE'  => $_COOKIE,
 		'$_SERVER'  => $_SERVER,
 	];
-	$trace['metdata'] = redact_metadata( $metadata );
+	$trace['metadata'] = redact_metadata( $metadata );
 
 	return $trace;
 }
