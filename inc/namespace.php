@@ -358,7 +358,7 @@ function get_end_trace() : array {
 		'$_SERVER'  => $_SERVER,
 	];
 
-	$trace['metdata'] = redact_metadata( $metadata );
+	$trace['metadata'] = redact_metadata( $metadata );
 	return $trace;
 }
 
