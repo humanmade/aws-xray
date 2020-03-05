@@ -174,6 +174,14 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
  * @param array $trace
  */
 function send_trace_to_daemon( array $trace ) {
+	if ( function_exists( 'apply_filters' ) ) {
+		/**
+		 * Filters the X-Ray Segment trace before sending it to the daemon.
+		 *
+		 * @param array $trace The associative array of trace data.
+		 */
+		$trace = apply_filters( 'aws_xray.trace_to_daemon', $trace );
+	}
 
 	if ( function_exists( 'do_action' ) ) {
 		do_action( 'aws_xray.send_trace_to_daemon', $trace );
