@@ -49,7 +49,7 @@ function bootstrap() {
 /**
  * Shutdown callback to process the trace once everything has finished.
  *
- * This is called by the 'shutdown WordPress action.
+ * This is called by the 'shutdown' WordPress action.
  */
 function on_shutdown_action() {
 	$use_fastcgi_finish_request = function_exists( 'fastcgi_finish_request' );
