@@ -352,10 +352,11 @@ function get_end_trace() : array {
 	];
 
 	$metadata = [
-		'$_GET'     => $_GET,
-		'$_POST'    => $_POST,
-		'$_COOKIE'  => $_COOKIE,
-		'$_SERVER'  => $_SERVER,
+		'$_GET'        => $_GET,
+		'$_POST'       => $_POST,
+		'$_COOKIE'     => $_COOKIE,
+		'$_SERVER'     => $_SERVER,
+		'sent_headers' => headers_list(),
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
