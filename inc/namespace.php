@@ -334,6 +334,7 @@ function get_in_progress_trace() : array {
 		'$_POST'    => $_POST,
 		'$_COOKIE'  => $_COOKIE,
 		'$_SERVER'  => $_SERVER,
+		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
 
@@ -396,10 +397,13 @@ function get_end_trace() : array {
 	];
 
 	$metadata = [
-		'$_GET'     => $_GET,
-		'$_POST'    => $_POST,
-		'$_COOKIE'  => $_COOKIE,
-		'$_SERVER'  => $_SERVER,
+		'$_GET'        => $_GET,
+		'$_POST'       => $_POST,
+		'$_COOKIE'     => $_COOKIE,
+		'$_SERVER'     => $_SERVER,
+		'response'     => [
+			'headers' => headers_list(),
+		],
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
