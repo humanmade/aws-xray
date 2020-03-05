@@ -25,10 +25,16 @@ function bootstrap() {
 	}
 
 	if ( function_exists( 'add_action' ) ) {
-		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown' );
-	} else {
-		register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
+		// Hook X-Ray into the 'shutdown' action if possible. This allows plugins to control the
+		// load order of shutdown functions as they can use the action's priority argument.
+		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown_action' );
 	}
+
+
+	// As well as using the shutdown action, we register as "direct" shutdown function in the event
+	// that the 'shutdown' action is never registered (such as requests that hit advanced-cache.php),
+	// of is the add_action API is not yet available.
+	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 
 	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) { // @codingStandardsIgnoreLine
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
@@ -42,8 +48,10 @@ function bootstrap() {
 
 /**
  * Shutdown callback to process the trace once everything has finished.
+ *
+ * This is called by the 'shutdown WordPress action.
  */
-function on_shutdown() {
+function on_shutdown_action() {
 	$use_fastcgi_finish_request = function_exists( 'fastcgi_finish_request' );
 	if ( function_exists( 'apply_filters' ) ) {
 		$use_fastcgi_finish_request = apply_filters( 'aws_xray.use_fastcgi_finish_request', $use_fastcgi_finish_request );
@@ -64,6 +72,35 @@ function on_shutdown() {
 	}
 
 	send_trace_to_daemon( get_end_trace() );
+}
+
+/**
+ * Shutdown callback that is triggered via register_shutdown_function.
+ *
+ * In some cases the on_shutdown_action() function will not be called, so we have
+ * this failsafe shutdown function to catch any cases where on_shutdown_action() is not called.
+ *
+ */
+function on_shutdown() {
+	// If we shutdown before the plugin API has loaded, return early.
+	if ( ! function_exists( 'has_action' ) ) {
+		on_shutdown_action();
+		return;
+	}
+	// If the "shutdown_action_hook" function has not been registered
+	// to the shutdown action, call it now.
+	if ( has_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown_action' ) === false ) {
+		on_shutdown_action();
+		return;
+	}
+
+	// It's possible the script is shutting down before register_shutdown_function( 'shutdown_action_hook' )
+	// has been called by WordPress. There's no way to check if this callback has been registered, so we use a heuristic that
+	// default-filters.php has not been loaded, which happens just before WordPress calls register_shutdown_function.
+	if ( has_action( 'wp_scheduled_delete', 'wp_scheduled_delete' ) === false ) {
+		on_shutdown_action();
+		return;
+	}
 }
 
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
