@@ -28,8 +28,8 @@ function register_qm_collector( array $collectors ) : array {
 	add_filter( 'aws_xray.use_fastcgi_finish_request', '__return_false' );
 
 	// Make sure the XRay shutdown function runs before the Query Monitor one.
-	remove_filter( 'shutdown', 'HM\\Platform\\XRay\\on_shutdown' );
-	add_filter( 'shutdown', 'HM\\Platform\\XRay\\on_shutdown', -1 );
+	remove_filter( 'shutdown', 'HM\\Platform\\XRay\\on_shutdown_action' );
+	add_filter( 'shutdown', 'HM\\Platform\\XRay\\on_shutdown_action', -1 );
 
 	require_once __DIR__ . '/class-collector.php';
 	$collectors['aws-xray'] = new Collector();
