@@ -30,7 +30,6 @@ function bootstrap() {
 		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown_action' );
 	}
 
-
 	// As well as using the shutdown action, we register as "direct" shutdown function in the event
 	// that the 'shutdown' action is never registered (such as requests that hit advanced-cache.php),
 	// of is the add_action API is not yet available.
@@ -96,8 +95,8 @@ function on_shutdown() {
 
 	// It's possible the script is shutting down before register_shutdown_function( 'shutdown_action_hook' )
 	// has been called by WordPress. There's no way to check if this callback has been registered, so we use a heuristic that
-	// default-filters.php has not been loaded, which happens just before WordPress calls register_shutdown_function.
-	if ( has_action( 'wp_scheduled_delete', 'wp_scheduled_delete' ) === false ) {
+	// get_locale() has been defined, which happens just after WordPress calls register_shutdown_function.
+	if ( ! function_exists( 'get_locale' ) ) {
 		on_shutdown_action();
 		return;
 	}
