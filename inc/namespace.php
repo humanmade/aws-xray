@@ -470,7 +470,7 @@ function get_xhprof_trace() : array {
 			'value'      => 1,
 			'children'   => [],
 			'start_time' => $hm_platform_xray_start_time,
-			'end_time'   => $end_time,
+			'end_time'   => $hm_platform_xray_start_time, // End time will be set in add_children_to_nodes as each child node's time bubbles up to the parent.
 		],
 	];
 
