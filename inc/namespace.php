@@ -2,10 +2,7 @@
 
 namespace HM\Platform\XRay;
 
-use Exception;
-use function HM\Platform\get_aws_sdk;
 use GuzzleHttp\TransferStats;
-use WP_Object_Cache;
 
 /*
  * Set initial values and register handlers
@@ -22,26 +19,44 @@ function bootstrap() {
 		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 	}
 
-	ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
-	xhprof_sample_enable();
+	if ( function_exists( 'xhprof_sample_enable' ) ) {
+		ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
+		xhprof_sample_enable();
+	}
 
+	if ( function_exists( 'add_action' ) ) {
+		// Hook X-Ray into the 'shutdown' action if possible. This allows plugins to control the
+		// load order of shutdown functions as they can use the action's priority argument.
+		add_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown_action' );
+	}
+
+	// As well as using the shutdown action, we register as "direct" shutdown function in the event
+	// that the 'shutdown' action is never registered (such as requests that hit advanced-cache.php),
+	// of is the add_action API is not yet available.
 	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 
-	$current_errror_handler = set_error_handler( function () use ( &$current_errror_handler ) { // @codingStandardsIgnoreLine
+	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) { // @codingStandardsIgnoreLine
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
-		if ( $current_errror_handler ) {
-			call_user_func_array( $current_errror_handler, func_get_args() );
+		if ( $current_error_handler ) {
+			call_user_func_array( $current_error_handler, func_get_args() );
 		}
-	} );
+	});
 
 	send_trace_to_daemon( get_in_progress_trace() );
 }
 
 /**
  * Shutdown callback to process the trace once everything has finished.
+ *
+ * This is called by the 'shutdown' WordPress action.
  */
-function on_shutdown() {
-	if ( function_exists( 'fastcgi_finish_request' ) ) {
+function on_shutdown_action() {
+	$use_fastcgi_finish_request = function_exists( 'fastcgi_finish_request' );
+	if ( function_exists( 'apply_filters' ) ) {
+		$use_fastcgi_finish_request = apply_filters( 'aws_xray.use_fastcgi_finish_request', $use_fastcgi_finish_request );
+	}
+
+	if ( $use_fastcgi_finish_request ) {
 		fastcgi_finish_request();
 	}
 
@@ -50,8 +65,41 @@ function on_shutdown() {
 	if ( $last_error ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
-	send_trace_to_daemon( get_xhprof_xray_trace() );
+
+	if ( function_exists( 'xhprof_sample_enable' ) ) {
+		send_trace_to_daemon( get_xhprof_xray_trace() );
+	}
+
 	send_trace_to_daemon( get_end_trace() );
+}
+
+/**
+ * Shutdown callback that is triggered via register_shutdown_function.
+ *
+ * In some cases the on_shutdown_action() function will not be called, so we have
+ * this failsafe shutdown function to catch any cases where on_shutdown_action() is not called.
+ *
+ */
+function on_shutdown() {
+	// If we shutdown before the plugin API has loaded, return early.
+	if ( ! function_exists( 'has_action' ) ) {
+		on_shutdown_action();
+		return;
+	}
+	// If the "shutdown_action_hook" function has not been registered
+	// to the shutdown action, call it now.
+	if ( has_action( 'shutdown', __NAMESPACE__ . '\\on_shutdown_action' ) === false ) {
+		on_shutdown_action();
+		return;
+	}
+
+	// It's possible the script is shutting down before register_shutdown_function( 'shutdown_action_hook' )
+	// has been called by WordPress. There's no way to check if this callback has been registered, so we use a heuristic that
+	// get_locale() has been defined, which happens just after WordPress calls register_shutdown_function.
+	if ( ! function_exists( 'get_locale' ) ) {
+		on_shutdown_action();
+		return;
+	}
 }
 
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
@@ -98,13 +146,9 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	];
 	send_trace_to_daemon( $trace );
 	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
-		global $xray_time_spent_in_remote_requests;
 		remove_action( 'http_api_debug', $on_complete );
 		$trace['in_progress'] = false;
 		$trace['end_time'] = microtime( true );
-
-		$xray_time_spent_in_remote_requests += $trace['end_time'] - $trace['end_time'];
-
 		if ( is_wp_error( $response ) ) {
 			$trace['fault'] = true;
 			$trace['cause'] = [
@@ -161,28 +205,24 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 }
 
 /**
- * Send a XRay trace document to AWS using the HTTP API.
- *
- * This is slower than using the XRay Daemon, but more convenient.
- *
- * @param array $trace
- */
-function send_trace_to_aws( array $trace ) {
-	try {
-		$response = get_aws_sdk()->createXRay( [ 'version' => '2016-04-12' ] )->putTraceSegments([
-			'TraceSegmentDocuments' => [ json_encode( $trace ) ], // @codingStandardsIgnoreLine wp_json_encode not available.
-		]);
-	} catch ( Exception $e ) {
-		trigger_error( $e->getMessage(), E_USER_WARNING ); // @codingStandardsIgnoreLine trigger_error ok
-	}
-}
-
-/**
  * Send a XRay trace document to AWS using the local daemon running on port 2000.
  *
  * @param array $trace
  */
 function send_trace_to_daemon( array $trace ) {
+	if ( function_exists( 'apply_filters' ) ) {
+		/**
+		 * Filters the X-Ray Segment trace before sending it to the daemon.
+		 *
+		 * @param array $trace The associative array of trace data.
+		 */
+		$trace = apply_filters( 'aws_xray.trace_to_daemon', $trace );
+	}
+
+	if ( function_exists( 'do_action' ) ) {
+		do_action( 'aws_xray.send_trace_to_daemon', $trace );
+	}
+
 	$header = '{"format": "json", "version": 1}';
 	$messages = get_flattened_segments_from_trace( $trace );
 	$socket   = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
@@ -233,11 +273,13 @@ function get_root_trace_id() : string {
 	}
 	if ( isset( $_SERVER['HTTP_X_AMZN_TRACE_ID'] ) ) {
 		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] );
-		$traces = array_reduce( $traces, function ( $traces, $trace ) {
-			$parts = explode( '=', $trace );
-			$traces[ $parts[0] ] = $parts[1];
-			return $traces;
-		}, [] );
+		$traces = array_reduce(
+			$traces, function ( $traces, $trace ) {
+				$parts = explode( '=', $trace );
+				$traces[ $parts[0] ] = $parts[1];
+				return $traces;
+			}, []
+		);
 
 		if ( isset( $traces['Self'] ) ) {
 			$trace_id = $traces['Self'];
@@ -275,7 +317,7 @@ function get_in_progress_trace() : array {
 		'trace_id'   => get_root_trace_id(),
 		'start_time' => $hm_platform_xray_start_time,
 		'service'    => [
-			'version' => HM_DEPLOYMENT_REVISION,
+			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
 		'http'       => [
@@ -285,14 +327,16 @@ function get_in_progress_trace() : array {
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
 			],
 		],
-		'metadata' => [
-			'$_GET'     => $_GET,
-			'$_POST'    => $_POST,
-			'$_COOKIE'  => $_COOKIE,
-			'$_SERVER'  => $_SERVER,
-		],
 		'in_progress' => true,
 	];
+	$metadata = [
+		'$_GET'     => $_GET,
+		'$_POST'    => $_POST,
+		'$_COOKIE'  => $_COOKIE,
+		'$_SERVER'  => $_SERVER,
+		'response' => [],
+	];
+	$trace['metadata'] = redact_metadata( $metadata );
 
 	return $trace;
 }
@@ -310,13 +354,7 @@ function get_end_trace() : array {
 	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
-	$stats = [
-		'object_cache' => get_object_cache_stats(),
-		'db'           => get_wpdb_stats(),
-		'remote'       => get_remote_requests_stats(),
-	];
-
-	return [
+	$trace = [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
@@ -324,7 +362,7 @@ function get_end_trace() : array {
 		'end_time'   => microtime( true ),
 		'user'       => $user,
 		'service'    => [
-			'version' => HM_DEPLOYMENT_REVISION,
+			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
 		'http'       => [
@@ -337,31 +375,39 @@ function get_end_trace() : array {
 				'status' => http_response_code(),
 			],
 		],
-		'metadata' => [
-			'$_GET'     => $_GET,
-			'$_POST'    => $_POST,
-			'$_COOKIE'  => $_COOKIE,
-			'$_SERVER'  => $_SERVER,
-			'stats'     => $stats,
-		],
 		'fault' => $is_fatal,
 		'error' => $has_non_fatal_errors,
 		'cause' => $hm_platform_xray_errors ? [
-			'exceptions' => array_map( function ( $error ) {
-				return [
-					'message' => $error['errstr'],
-					'type' => get_error_type_for_error_number( $error['errno'] ),
-					'stack' => [
-						[
-							'path' => $error['errfile'],
-							'line' => $error['errline'],
-						],
-					],
-				];
-			}, array_values( $hm_platform_xray_errors ) ),
+			'exceptions' => array_map(
+				function ( $error ) {
+						return [
+							'message' => $error['errstr'],
+							'type' => get_error_type_for_error_number( $error['errno'] ),
+							'stack' => [
+								[
+									'path' => $error['errfile'],
+									'line' => $error['errline'],
+								],
+							],
+						];
+				}, array_values( $hm_platform_xray_errors )
+			),
 		] : null,
 		'in_progress' => false,
 	];
+
+	$metadata = [
+		'$_GET'        => $_GET,
+		'$_POST'       => $_POST,
+		'$_COOKIE'     => $_COOKIE,
+		'$_SERVER'     => $_SERVER,
+		'response'     => [
+			'headers' => headers_list(),
+		],
+	];
+
+	$trace['metadata'] = redact_metadata( $metadata );
+	return $trace;
 }
 
 function get_xhprof_xray_trace() : array {
@@ -379,7 +425,7 @@ function get_xhprof_xray_trace() : array {
 
 function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	return [
-		'name'        => preg_replace( '~[^\w\s_\.:/%&#=+\-@]~u', '', $item->name ),
+		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\\\\\-@]~u', '', $item->name ),
 		'subsegments' => array_map( __FUNCTION__, $item->children ),
 		'id'          => bin2hex( random_bytes( 8 ) ),
 		'start_time'  => $item->start_time,
@@ -407,11 +453,13 @@ function get_xhprof_trace() : array {
 		$pluck_every_n = ceil( count( $stack ) / $max_frames );
 		$sample_interval = ceil( $sample_interval * ( count( $stack ) / $max_frames ) );
 
-		$stack = array_filter( $stack, function ( $value ) use ( $pluck_every_n ) : bool {
-			static $frame_number = -1;
-			$frame_number++;
-			return $frame_number % $pluck_every_n === 0;
-		} );
+		$stack = array_filter(
+			$stack, function ( $value ) use ( $pluck_every_n ) : bool {
+				static $frame_number = -1;
+				$frame_number++;
+				return $frame_number % $pluck_every_n === 0;
+			}
+		);
 	}
 
 	$time_seconds = $sample_interval / 1000000;
@@ -422,7 +470,7 @@ function get_xhprof_trace() : array {
 			'value'      => 1,
 			'children'   => [],
 			'start_time' => $hm_platform_xray_start_time,
-			'end_time'   => $hm_platform_xray_start_time,
+			'end_time'   => $end_time,
 		],
 	];
 
@@ -554,8 +602,6 @@ function on_hm_platform_aws_sdk_params( array $params ) : array {
  * @param TransferStats $stats
  */
 function on_aws_guzzle_request_stats( TransferStats $stats ) {
-	global $xray_time_spent_in_remote_requests;
-	$xray_time_spent_in_remote_requests += $stats->getHandlerStat( 'total_time' );
 	$code = $stats->hasResponse() ? $stats->getResponse()->getStatusCode() : null;
 
 	// For some services the header is requestid, for others: request-id.
@@ -604,47 +650,37 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 	send_trace_to_daemon( $trace );
 }
 
-function get_wpdb_stats() : array {
-	global $wpdb;
-	$stats = [];
+function redact_metadata( $metadata ) {
 
-	if ( isset( $wpdb->time_spent ) ) {
-		$stats['time'] = $wpdb->time_spent;
+	$redact_keys_default = [];
+	if ( function_exists( 'apply_filters' ) ) {
+		$redact_keys_default = apply_filters( 'aws_xray.redact_metadata_keys', $redact_keys_default );
 	}
 
-	return $stats;
-}
-
-function get_remote_requests_stats() {
-	global $xray_time_spent_in_remote_requests;
-	return [
-		'time' => $xray_time_spent_in_remote_requests,
+	$redact_keys_required = [
+		'$_POST' => [
+			'pwd',
+		],
 	];
-}
 
-function get_object_cache_stats() : array {
-	global $wp_object_cache;
-	if ( ! $wp_object_cache || ! $wp_object_cache instanceof WP_Object_Cache ) {
-		return [];
+	$redact_keys = array_merge_recursive( $redact_keys_default, $redact_keys_required );
+
+	$redacted = $metadata;
+	foreach ( $redact_keys as $super => $keys ) {
+		if ( ! isset( $metadata[ $super ] ) ) {
+			continue;
+		}
+
+		foreach ( $keys as $key ) {
+			if ( isset( $metadata[ $super ][ $key ] ) ) {
+				$redacted[ $super ][ $key ] = 'REDACTED';
+			}
+		}
 	}
 
-	$stats = [];
-
-	if ( isset( $wp_object_cache->cache_hits ) ) {
-		$stats['hits'] = $wp_object_cache->cache_hits;
+	if ( function_exists( 'apply_filters' ) ) {
+		$redacted = apply_filters( 'aws_xray.redact_metadata', $redacted );
 	}
 
-	if ( isset( $wp_object_cache->cache_misses ) ) {
-		$stats['misses'] = $wp_object_cache->cache_misses;
-	}
-
-	if ( isset( $wp_object_cache->redis_calls ) ) {
-		$stats['remote_calls'] = $wp_object_cache->redis_calls;
-	}
-
-	if ( isset( $wp_object_cache->redis ) && isset( $wp_object_cache->redis->time_spent ) ) {
-		$stats['time'] = $wp_object_cache->redis->time_spent;
-	}
-
-	return $stats;
+	return $redacted;
 }
