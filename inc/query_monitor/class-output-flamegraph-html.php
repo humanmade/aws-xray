@@ -18,7 +18,7 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		foreach ( $this->collector->traces as $trace ) {
 			if ( $trace['name'] === 'xhprof' ) {
 				$xhprof = $trace;
-			} else if ( empty( $trace['parent_id'] ) && ! $trace['in_progress'] ) {
+			} elseif ( empty( $trace['parent_id'] ) && ! $trace['in_progress'] ) {
 				$end_trace = $trace;
 			}
 		}
@@ -29,8 +29,8 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		?>
 		<?php $this->before_non_tabular_output( 'qm-aws-xray-flamegraph' ); ?>
 		<caption>
-			<?php /* translators: %d = Number of milliseconds */ ?>
 			<h2>
+				<?php /* translators: %d = Number of milliseconds */ ?>
 				<?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?>
 				<?php if ( isset( $end_trace['metadata']['stats']['object_cache']['time'] ) ) : ?>
 					Object Cache Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['object_cache']['time'] * 1000 ) ) ?>ms
