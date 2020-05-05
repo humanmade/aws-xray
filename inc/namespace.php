@@ -38,8 +38,10 @@ function bootstrap() {
 	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) { // @codingStandardsIgnoreLine
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
 		if ( $current_error_handler ) {
-			call_user_func_array( $current_error_handler, func_get_args() );
+			return call_user_func_array( $current_error_handler, func_get_args() );
 		}
+		// Return false from this function, so the normal PHP error handling is still performed.
+		return false;
 	});
 
 	send_trace_to_daemon( get_in_progress_trace() );
