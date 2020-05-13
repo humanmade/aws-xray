@@ -3,6 +3,7 @@
 namespace HM\Platform\XRay;
 
 use GuzzleHttp\TransferStats;
+use WP_Object_Cache;
 
 /*
  * Set initial values and register handlers
@@ -73,6 +74,10 @@ function on_shutdown_action() {
 	}
 
 	send_trace_to_daemon( get_end_trace() );
+	$object_cache_trace = get_object_cache_trace();
+	if ( $object_cache_trace ) {
+		send_trace_to_daemon( $object_cache_trace );
+	}
 }
 
 /**
@@ -148,9 +153,13 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	];
 	send_trace_to_daemon( $trace );
 	$on_complete = function ( $response ) use ( &$trace, &$on_complete ) {
+		global $xray_time_spent_in_remote_requests;
 		remove_action( 'http_api_debug', $on_complete );
 		$trace['in_progress'] = false;
 		$trace['end_time'] = microtime( true );
+
+		$xray_time_spent_in_remote_requests += $trace['end_time'] - $trace['end_time'];
+
 		if ( is_wp_error( $response ) ) {
 			$trace['fault'] = true;
 			$trace['cause'] = [
@@ -356,6 +365,12 @@ function get_end_trace() : array {
 	$has_non_fatal_errors = $error_numbers && ! ! array_diff( [ E_ERROR ], $error_numbers );
 	$user                 = function_exists( 'get_current_user_id' ) ?? get_current_user_id();
 
+	$stats = [
+		'object_cache' => get_object_cache_stats(),
+		'db'           => get_wpdb_stats(),
+		'remote'       => get_remote_requests_stats(),
+	];
+
 	$trace = [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
@@ -406,6 +421,7 @@ function get_end_trace() : array {
 		'response'     => [
 			'headers' => headers_list(),
 		],
+		'stats'     => $stats,
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
@@ -604,6 +620,8 @@ function on_hm_platform_aws_sdk_params( array $params ) : array {
  * @param TransferStats $stats
  */
 function on_aws_guzzle_request_stats( TransferStats $stats ) {
+	global $xray_time_spent_in_remote_requests;
+	$xray_time_spent_in_remote_requests += $stats->getHandlerStat( 'total_time' );
 	$code = $stats->hasResponse() ? $stats->getResponse()->getStatusCode() : null;
 
 	// For some services the header is requestid, for others: request-id.
@@ -650,6 +668,95 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 		];
 	}
 	send_trace_to_daemon( $trace );
+}
+
+/**
+ * Get the WordPress database time usage stats.
+ *
+ * @return array {
+ *     @type int $time
+ * }
+ */
+function get_wpdb_stats() : array {
+	global $wpdb;
+	$stats = [];
+
+	if ( isset( $wpdb->time_spent ) ) {
+		$stats['time'] = $wpdb->time_spent;
+	}
+
+	return $stats;
+}
+
+/**
+ * Get the remote requests time usage stats.
+ *
+ * @return array {
+ *     @type int $time
+ * }
+ */
+function get_remote_requests_stats() {
+	global $xray_time_spent_in_remote_requests;
+	return [
+		'time' => $xray_time_spent_in_remote_requests,
+	];
+}
+
+/**
+ * Get a segment account for all object-cache time.
+ *
+ * @return array|null
+ */
+function get_object_cache_trace() : ?array {
+	$stats = get_object_cache_stats();
+	if ( empty( $stats['time'] ) ) {
+		return null;
+	}
+	global $hm_platform_xray_start_time;
+	return [
+		'name'       => 'object-cache',
+		'id'         => bin2hex( random_bytes( 8 ) ),
+		'trace_id'   => get_root_trace_id(),
+		'parent_id'  => get_main_trace_id(),
+		'type'       => 'subsegment',
+		'start_time' => $hm_platform_xray_start_time,
+		'end_time'   => $hm_platform_xray_start_time + $stats['time'],
+		'namespace'  => 'remote',
+	];
+}
+
+/**
+ * Get the object cache time usage stats.
+ *
+ * @return array {
+ *     @type int $time
+ * }
+ */
+function get_object_cache_stats() : array {
+	global $wp_object_cache;
+	if ( ! $wp_object_cache || ! $wp_object_cache instanceof WP_Object_Cache ) {
+		return [];
+	}
+
+	$stats = [];
+
+	if ( isset( $wp_object_cache->cache_hits ) ) {
+		$stats['hits'] = $wp_object_cache->cache_hits;
+	}
+
+	if ( isset( $wp_object_cache->cache_misses ) ) {
+		$stats['misses'] = $wp_object_cache->cache_misses;
+	}
+
+	if ( isset( $wp_object_cache->redis_calls ) ) {
+		$stats['remote_calls'] = $wp_object_cache->redis_calls;
+	}
+
+	if ( isset( $wp_object_cache->redis ) && isset( $wp_object_cache->redis->time_spent ) ) {
+		$stats['time'] = $wp_object_cache->redis->time_spent;
+	}
+
+	return $stats;
 }
 
 function redact_metadata( $metadata ) {

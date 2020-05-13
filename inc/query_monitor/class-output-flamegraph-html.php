@@ -14,22 +14,36 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 
 	public function output() {
 		$xhprof = null;
+		$end_trace = null;
 		foreach ( $this->collector->traces as $trace ) {
 			if ( $trace['name'] === 'xhprof' ) {
 				$xhprof = $trace;
-				break;
+			} elseif ( empty( $trace['parent_id'] ) && ! $trace['in_progress'] ) {
+				$end_trace = $trace;
 			}
 		}
 
 		if ( ! $xhprof ) {
 			return;
 		}
-
 		?>
 		<?php $this->before_non_tabular_output( 'qm-aws-xray-flamegraph' ); ?>
 		<caption>
-			<?php /* translators: %d = Number of milliseconds */ ?>
-			<h2><?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?></h2>
+			<h2>
+				<?php /* translators: %d = Number of milliseconds */ ?>
+				<?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?>
+				<?php if ( isset( $end_trace['metadata']['stats']['object_cache']['time'] ) ) : ?>
+					Object Cache Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['object_cache']['time'] * 1000 ) ) ?>ms
+				<?php endif ?>
+
+				<?php if ( isset( $end_trace['metadata']['stats']['db']['time'] ) ) : ?>
+					Database Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['db']['time'] * 1000 ) ) ?>ms
+				<?php endif ?>
+
+				<?php if ( isset( $end_trace['metadata']['stats']['remote']['time'] ) ) : ?>
+					Remote Requests Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['remote']['time'] * 1000 ) ) ?>ms
+				<?php endif ?>
+			</h2>
 		</caption>
 		<div class="aws-xray-flamegraph"><?php echo wp_json_encode( $xhprof ) ?></div>
 		<?php
