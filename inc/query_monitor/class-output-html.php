@@ -32,9 +32,9 @@ class Output_Html extends QM_Output_Html {
 			<?php foreach ( $this->collector->traces as $trace ) : ?>
 				<tr>
 					<td><?php echo esc_html( $trace['name'] ) ?></td>
-					<td><?php echo $trace['in_progress'] ? '&#x2714;' : '' ?>
+					<td><?php echo ( isset( $trace['in_progress'] ) && $trace['in_progress'] ) ? '&#x2714;' : '' ?>
 					<td>
-						<?php if ( ! $trace['in_progress'] ) : ?>
+						<?php if ( ! isset( $trace['in_progress'] ) || ! $trace['in_progress'] ) : ?>
 							<?php echo esc_html( round( ( $trace['end_time'] - $trace['start_time'] ) * 1000 ), 1 ) ?>ms</td>
 						<?php endif ?>
 					</td>

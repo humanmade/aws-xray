@@ -200,6 +200,7 @@ function trace_wpdb_query( string $query, float $start_time, float $end_time, $e
 			'database_type'   => 'mysql',
 			'sanitized_query' => $query,
 		],
+		'in_progress' => false,
 	];
 	if ( $errored ) {
 		$trace['fault'] = true;
@@ -438,6 +439,7 @@ function get_xhprof_xray_trace() : array {
 	$xhprof_trace['name'] = 'xhprof';
 	$xhprof_trace['parent_id'] = get_main_trace_id();
 	$xhprof_trace['type'] = 'subsegment';
+	$xhprof_trace['in_progress'] = false;
 	return $xhprof_trace;
 }
 
@@ -484,11 +486,11 @@ function get_xhprof_trace() : array {
 
 	$nodes = [
 		(object) [
-			'name'       => 'main()',
-			'value'      => 1,
-			'children'   => [],
-			'start_time' => $hm_platform_xray_start_time,
-			'end_time'   => $hm_platform_xray_start_time, // End time will be set in add_children_to_nodes as each child node's time bubbles up to the parent.
+			'name'        => 'main()',
+			'value'       => 1,
+			'children'    => [],
+			'start_time'  => $hm_platform_xray_start_time,
+			'end_time'    => $hm_platform_xray_start_time, // End time will be set in add_children_to_nodes as each child node's time bubbles up to the parent.
 		],
 	];
 
@@ -714,14 +716,15 @@ function get_object_cache_trace() : ?array {
 	}
 	global $hm_platform_xray_start_time;
 	return [
-		'name'       => 'object-cache',
-		'id'         => bin2hex( random_bytes( 8 ) ),
-		'trace_id'   => get_root_trace_id(),
-		'parent_id'  => get_main_trace_id(),
-		'type'       => 'subsegment',
-		'start_time' => $hm_platform_xray_start_time,
-		'end_time'   => $hm_platform_xray_start_time + $stats['time'],
-		'namespace'  => 'remote',
+		'name'        => 'object-cache',
+		'id'          => bin2hex( random_bytes( 8 ) ),
+		'trace_id'    => get_root_trace_id(),
+		'parent_id'   => get_main_trace_id(),
+		'type'        => 'subsegment',
+		'start_time'  => $hm_platform_xray_start_time,
+		'end_time'    => $hm_platform_xray_start_time + $stats['time'],
+		'namespace'   => 'remote',
+		'in_progress' => false,
 	];
 }
 
