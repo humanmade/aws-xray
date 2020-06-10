@@ -13,6 +13,10 @@ class Output_Html extends QM_Output_Html {
 		add_filter( 'qm/output/panel_menus', [ $this, 'panel_menu' ], 40 );
 	}
 
+	public function name() {
+		return __( 'AWS X-Ray', 'aws-xray' );
+	}
+
 	public function output() {
 		?>
 		<?php $this->before_tabular_output(); ?>
