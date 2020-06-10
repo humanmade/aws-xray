@@ -15,10 +15,6 @@ class Collector extends QM_Collector {
 		$this->trace_sent_to_daemon( get_in_progress_trace() );
 	}
 
-	public function name() {
-		return __( 'AWS X-Ray', 'aws-xray' );
-	}
-
 	/**
 	 * Track all traces in memory that are send to the X Ray daemon.
 	 *
