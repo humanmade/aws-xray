@@ -12,13 +12,17 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 		add_filter( 'qm/output/panel_menus', [ $this, 'panel_menu' ], 40 );
 	}
 
+	public function name() {
+		return __( 'Flamegraph', 'aws-xray' );
+	}
+
 	public function output() {
 		$xhprof = null;
 		$end_trace = null;
 		foreach ( $this->collector->traces as $trace ) {
 			if ( $trace['name'] === 'xhprof' ) {
 				$xhprof = $trace;
-			} elseif ( empty( $trace['parent_id'] ) && ! $trace['in_progress'] ) {
+			} elseif ( empty( $trace['parent_id'] ) && empty( $trace['in_progress'] ) ) {
 				$end_trace = $trace;
 			}
 		}
@@ -33,15 +37,15 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 				<?php /* translators: %d = Number of milliseconds */ ?>
 				<?php printf( esc_html__( 'Sampled Profile (%dms intervals)', 'aws-xray' ), 5 ) ?>
 				<?php if ( isset( $end_trace['metadata']['stats']['object_cache']['time'] ) ) : ?>
-					Object Cache Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['object_cache']['time'] * 1000 ) ) ?>ms
+					<?php esc_html_e( 'Object Cache Time', 'aws-xray' ); ?>: <?php echo esc_html( round( $end_trace['metadata']['stats']['object_cache']['time'] * 1000 ) ) ?>ms
 				<?php endif ?>
 
 				<?php if ( isset( $end_trace['metadata']['stats']['db']['time'] ) ) : ?>
-					Database Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['db']['time'] * 1000 ) ) ?>ms
+					<?php esc_html_e( 'Database Time', 'aws-xray' ); ?>: <?php echo esc_html( round( $end_trace['metadata']['stats']['db']['time'] * 1000 ) ) ?>ms
 				<?php endif ?>
 
 				<?php if ( isset( $end_trace['metadata']['stats']['remote']['time'] ) ) : ?>
-					Remote Requests Time: <?php echo esc_html( round( $end_trace['metadata']['stats']['remote']['time'] * 1000 ) ) ?>ms
+					<?php esc_html_e( 'Remote Requests Time', 'aws-xray' ); ?>: <?php echo esc_html( round( $end_trace['metadata']['stats']['remote']['time'] * 1000 ) ) ?>ms
 				<?php endif ?>
 			</h2>
 		</caption>
