@@ -651,8 +651,8 @@ function on_aws_guzzle_request_stats( TransferStats $stats ) {
 			],
 		],
 		'aws'          => [
-			'request_id'  => $request_id ? $request_id[0] : null,
-			'operation'   => explode( '.', $stats->getRequest()->getHeader( 'x-amz-target' )[0] )[1],
+			'request_id'  => $request_id[0] ?? null,
+			'operation'   => explode( '.', $stats->getRequest()->getHeader( 'x-amz-target' )[0] ?? 'xray.amz-unknown-target' )[1],
 		],
 		'in_progress'  => false,
 		'fault'        => $code > 499,
