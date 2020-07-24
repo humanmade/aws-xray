@@ -332,15 +332,20 @@ function get_in_progress_trace() : array {
 			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
-		'http'       => [
+		'in_progress' => true,
+	];
+
+	// Add HTTP data if this not a CLI request.
+	if ( php_sapi_name() !== 'cli' ) {
+		$trace['http'] = [
 			'request' => [
 				'method'    => $_SERVER['REQUEST_METHOD'],
 				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
 			],
-		],
-		'in_progress' => true,
-	];
+		];
+	}
+
 	$metadata = [
 		'$_GET'     => $_GET,
 		'$_POST'    => $_POST,
@@ -383,16 +388,6 @@ function get_end_trace() : array {
 			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
 		'origin'     => 'AWS::EC2::Instance',
-		'http'       => [
-			'request' => [
-				'method'    => $_SERVER['REQUEST_METHOD'],
-				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
-				'client_ip' => $_SERVER['REMOTE_ADDR'],
-			],
-			'response' => [
-				'status' => http_response_code(),
-			],
-		],
 		'fault' => $is_fatal,
 		'error' => $has_non_fatal_errors,
 		'cause' => $hm_platform_xray_errors ? [
@@ -413,6 +408,20 @@ function get_end_trace() : array {
 		] : null,
 		'in_progress' => false,
 	];
+
+	// Add HTTP data if this not a CLI request.
+	if ( php_sapi_name() !== 'cli' ) {
+		$trace['http'] = [
+			'request' => [
+				'method'    => $_SERVER['REQUEST_METHOD'],
+				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
+				'client_ip' => $_SERVER['REMOTE_ADDR'],
+			],
+			'response' => [
+				'status' => http_response_code(),
+			],
+		];
+	}
 
 	$metadata = [
 		'$_GET'        => $_GET,
