@@ -425,7 +425,12 @@ function get_end_trace() : array {
 		'stats'     => $stats,
 	];
 
-	$trace['metadata'] = redact_metadata( $metadata );
+	$annotations = [
+		'peakMemoryUsage' => round( memory_get_peak_usage() / 1024 ),
+	];
+
+	$trace['metadata']    = redact_metadata( $metadata );
+	$trace['annotations'] = $annotations;
 	return $trace;
 }
 
