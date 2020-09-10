@@ -426,7 +426,7 @@ function get_end_trace() : array {
 	];
 
 	$annotations = [
-		'peakMemoryUsage' => round( memory_get_peak_usage() / 1024 ),
+		'memoryUsage' => round( memory_get_peak_usage() / 1048576, 2 ), // Convert bytes to mb.
 	];
 
 	$trace['metadata']    = redact_metadata( $metadata );
