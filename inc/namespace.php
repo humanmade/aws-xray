@@ -429,7 +429,7 @@ function get_end_trace() : array {
 		'memoryUsage' => memory_get_peak_usage() / 1048576, // Convert bytes to mb.
 	];
 
-	$trace['metadata']    = redact_metadata( $metadata );
+	$trace['metadata'] = redact_metadata( $metadata );
 	$trace['annotations'] = $annotations;
 	return $trace;
 }
