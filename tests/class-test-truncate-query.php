@@ -4,10 +4,14 @@
  */
 
 namespace HM\Platform\XRay;
-// @codingStandardsIgnoreLine inc directory ok.
 
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Class Test_Truncate_Query
+ *
+ * @package HM\Platform\XRay
+ */
 class Test_Truncate_Query extends TestCase {
 
 	/**
