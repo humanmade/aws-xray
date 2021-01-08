@@ -185,7 +185,7 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 }
 
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
-	// Truncate long query to ensure not exceed max limit.
+	// Truncate long query to ensure it does not exceed max limit.
 	$query = truncate_query( $query );
 
 	$trace = [
@@ -806,15 +806,15 @@ function redact_metadata( $metadata ) {
 }
 
 /**
- * Truncate sql query to given max_size.
+ * Truncate sql query to given maximum size.
  *
  * @param string $query       SQL Query to truncate.
- * @param int    $max_size    Maximum size, default 5KB.
+ * @param int    $max_size    Maximum size in bytes, default 5KB.
  * @param string $replacement String replacement.
  *
  * @return string
  */
-function truncate_query( string $query, int $max_size = 5 * 1024, string $replacement = '…' ): string {
+function truncate_query( string $query, int $max_size = 5 * 1024, string $replacement = '…' ) : string {
 	if ( mb_strlen( $query ) < $max_size ) {
 		return $query;
 	}
