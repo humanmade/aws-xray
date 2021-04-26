@@ -5,7 +5,6 @@
  * @package AWS-Xray
  */
 
-
 namespace HM\Platform\XRay\Query_Monitor;
 
 use function HM\Platform\XRay\get_root_trace_id;
