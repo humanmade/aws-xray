@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * AWS Xray
  *
