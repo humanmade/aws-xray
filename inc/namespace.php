@@ -350,7 +350,7 @@ function get_in_progress_trace() : array {
 	];
 	$metadata = [
 		'$_GET'     => $_GET,
-		'$_POST'    => $_POST,
+		'$_POST'    => $_POST, // phpcs:ignore HM.Security.NonceVerification.Missing
 		'$_COOKIE'  => $_COOKIE,
 		'$_SERVER'  => $_SERVER,
 		'response' => [],
@@ -423,7 +423,7 @@ function get_end_trace() : array {
 
 	$metadata = [
 		'$_GET'        => $_GET,
-		'$_POST'       => $_POST,
+		'$_POST'       => $_POST, // phpcs:ignore HM.Security.NonceVerification.Missing
 		'$_COOKIE'     => $_COOKIE,
 		'$_SERVER'     => $_SERVER,
 		'response'     => [
