@@ -27,7 +27,7 @@ class Output_Html extends QM_Output_Html {
 		<?php $this->before_tabular_output(); ?>
 		<caption>
 			<?php /* translators: Trace ID */ ?>
-			<h2><?php printf( esc_html__( 'Trace ID: %s', 'aws-xray' ), get_root_trace_id() ); ?></h2>
+			<h2><?php printf( esc_html__( 'Trace ID: %s', 'aws-xray' ), get_root_trace_id() ); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped ?></h2>
 		</caption>
 		<thead>
 			<tr>
@@ -49,9 +49,9 @@ class Output_Html extends QM_Output_Html {
 					</td>
 					<td class="qm-has-toggle">
 						<ol class="qm-toggler">
-							<?php echo $this->build_toggler() ?>
+							<?php echo $this->build_toggler(); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped ?>
 							<div class="qm-toggled">
-								<pre><?php echo esc_html( print_r( $trace, true ) ) ?></pre>
+								<pre><?php echo esc_html( print_r( $trace, true ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r ?></pre>
 							</div>
 						</ol>
 					</td>
