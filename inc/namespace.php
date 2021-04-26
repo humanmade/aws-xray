@@ -284,7 +284,6 @@ function get_flattened_segments_from_trace( array $trace ) : array {
 
 /**
  * Get the root trace ID for the request
- *
  */
 function get_root_trace_id() : string {
 	static $trace_id;
