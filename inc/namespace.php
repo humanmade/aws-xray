@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
 /**
  * AWS Xray
  *
@@ -90,7 +90,6 @@ function on_shutdown_action() {
  *
  * In some cases the on_shutdown_action() function will not be called, so we have
  * this failsafe shutdown function to catch any cases where on_shutdown_action() is not called.
- *
  */
 function on_shutdown() {
 	// If we shutdown before the plugin API has loaded, return early.
