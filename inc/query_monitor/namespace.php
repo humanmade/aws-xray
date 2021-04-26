@@ -1,4 +1,9 @@
 <?php
+/**
+ * Query Monitor
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay\Query_Monitor;
 

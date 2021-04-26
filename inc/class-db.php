@@ -1,4 +1,9 @@
 <?php
+/**
+ * DB Class
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay;
 

@@ -1,11 +1,16 @@
 <?php
+/**
+ * AWS Xray
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay;
 
 use GuzzleHttp\TransferStats;
 use WP_Object_Cache;
 
-/*
+/**
  * Set initial values and register handlers
  */
 function bootstrap() {
