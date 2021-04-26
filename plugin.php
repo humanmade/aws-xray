@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Plugin Name: AWS X-Ray
  * Description: HM Platform plugin for sending data to AWS X-Ray
