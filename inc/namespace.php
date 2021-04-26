@@ -590,16 +590,16 @@ function on_cloudwatch_error_handler_error( array $error ) : array {
 	return $error;
 }
 
-/*
+/**
  * Partial extraction from wp_list_pluck. Extracted in the event the function
  * hasn't yet been defined, such as when there is a fatal early in the boot
  * process.
  */
 function _pluck( $list, $field ) {
 	/*
-		* When index_key is not set for a particular item, push the value
-		* to the end of the stack. This is how array_column() behaves.
-		*/
+	 * When index_key is not set for a particular item, push the value
+	 * to the end of the stack. This is how array_column() behaves.
+	 */
 	$newlist = [];
 	foreach ( $list as $key => $value ) {
 		if ( is_object( $value ) ) {
