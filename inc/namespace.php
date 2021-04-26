@@ -291,7 +291,7 @@ function get_root_trace_id() : string {
 		return $trace_id;
 	}
 	if ( isset( $_SERVER['HTTP_X_AMZN_TRACE_ID'] ) ) {
-		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] );
+		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] ); // phpcs:ignore HM.Security.ValidatedSanitizedInput.MissingUnslash, HM.Security.ValidatedSanitizedInput.InputNotSanitized
 		$traces = array_reduce(
 			$traces, function ( $traces, $trace ) {
 				$parts = explode( '=', $trace );
