@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * Query Monitor Flamegraph
  *
