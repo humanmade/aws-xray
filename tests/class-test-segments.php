@@ -1,12 +1,12 @@
 <?php
-
-namespace HM\Platform\XRay; // @codingStandardsIgnoreLine inc directory ok.
+// phpcs:disable Squiz.Commenting.FileComment.Missing, Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing
+namespace HM\Platform\XRay;
 
 use PHPUnit\Framework\TestCase;
 
 class Test_Segments extends TestCase {
 	function test_get_flattened_segments_from_trace() {
-		// Create 2 segments where the total adds up to more than 64KB data
+		// Create 2 segments where the total adds up to more than 64KB data.
 		$segment = [
 			'id' => 1,
 			'payload' => str_repeat( 'a', 64 * 1024 ),
