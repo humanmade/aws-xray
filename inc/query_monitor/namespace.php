@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment, Generic.Commenting.DocComment.MissingShort
 /**
  * Query Monitor
  *
