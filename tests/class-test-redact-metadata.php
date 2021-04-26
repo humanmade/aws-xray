@@ -1,6 +1,6 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FileComment.Missing, Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing
 
-namespace HM\Platform\XRay; // @codingStandardsIgnoreLine inc directory ok.
+namespace HM\Platform\XRay;
 
 use PHPUnit\Framework\TestCase;
 
