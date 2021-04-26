@@ -60,14 +60,14 @@ class DB extends wpdb {
 
 		$caller      = [];
 		$check_class = ! is_null( $ignore_class );
-		$skip_frames++; // skip this function
+		$skip_frames++; // Skip this function.
 
 		foreach ( $trace as $call ) {
 			if ( $skip_frames > 0 ) {
 				$skip_frames--;
 			} elseif ( isset( $call['class'] ) ) {
 				if ( $check_class && $ignore_class === $call['class'] ) {
-					continue; // Filter out calls
+					continue; // Filter out calls.
 				}
 
 				$caller[] = "{$call['class']}{$call['type']}{$call['function']}";
