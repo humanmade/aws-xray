@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
+<?php
 /**
  * DB Class
  *
@@ -20,6 +20,11 @@ class DB extends wpdb {
 	 */
 	public $time_spent = 0;
 
+	/**
+	 * Wrapper for the WPDB query that tracks time spent making the query.
+	 *
+	 * @param string $query
+	 */
 	public function query( $query ) {
 		$start = microtime( true );
 		$result = parent::query( $query );
