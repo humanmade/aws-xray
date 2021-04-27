@@ -1,10 +1,18 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment, Generic.Commenting.DocComment.MissingShort
+/**
+ * Query Monitor
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay\Query_Monitor;
 
 use QM_Collectors;
 use QM_Dispatchers;
 
+/**
+ * Bootstrap Query Monitor.
+ */
 function bootstrap() {
 	add_filter( 'qm/outputter/html', __NAMESPACE__ . '\\register_qm_output_html' );
 	add_filter( 'qm/collectors', __NAMESPACE__ . '\\register_qm_collector' );

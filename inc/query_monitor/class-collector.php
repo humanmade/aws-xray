@@ -1,14 +1,25 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.VariableComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
+/**
+ * Query Monitor Collector
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay\Query_Monitor;
 
 use function HM\Platform\XRay\get_in_progress_trace;
 use QM_Collector;
 
+/**
+ * Query Monitor Collector class.
+ */
 class Collector extends QM_Collector {
 	public $id = 'aws-xray';
 	public $traces;
 
+	/**
+	 * Class constructor
+	 */
 	public function __construct() {
 		add_action( 'aws_xray.send_trace_to_daemon', [ $this, 'trace_sent_to_daemon' ] );
 		// The XRay start trace will already have been sent, so we have to backfill it.

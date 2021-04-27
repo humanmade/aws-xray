@@ -1,21 +1,40 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment
+/**
+ * Query Monitor Flamegraph
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay\Query_Monitor;
 
 use QM_Collector;
 use QM_Output_Html;
 
+/**
+ * Flamegraph HTML Output class.
+ */
 class Output_Flamegraph_Html extends QM_Output_Html {
 
+	/**
+	 * Class constructor
+	 *
+	 * @param QM_Collector $collector
+	 */
 	public function __construct( QM_Collector $collector ) {
 		parent::__construct( $collector );
 		add_filter( 'qm/output/panel_menus', [ $this, 'panel_menu' ], 40 );
 	}
 
+	/**
+	 * Returns the QM panel name
+	 */
 	public function name() {
 		return __( 'Flamegraph', 'aws-xray' );
 	}
 
+	/**
+	 * Returns the QM panel output
+	 */
 	public function output() {
 		$xhprof = null;
 		$end_trace = null;

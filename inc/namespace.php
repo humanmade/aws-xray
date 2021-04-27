@@ -1,11 +1,16 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment, Squiz.Commenting.FunctionComment.MissingParamTag
+/**
+ * AWS Xray
+ *
+ * @package AWS-Xray
+ */
 
 namespace HM\Platform\XRay;
 
 use GuzzleHttp\TransferStats;
 use WP_Object_Cache;
 
-/*
+/**
  * Set initial values and register handlers
  */
 function bootstrap() {
@@ -36,7 +41,8 @@ function bootstrap() {
 	// of is the add_action API is not yet available.
 	register_shutdown_function( __NAMESPACE__ . '\\on_shutdown' );
 
-	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) { // @codingStandardsIgnoreLine
+	// @codingStandardsIgnoreLine
+	$current_error_handler = set_error_handler( function () use ( &$current_error_handler ) {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', func_get_args() );
 		if ( $current_error_handler ) {
 			return call_user_func_array( $current_error_handler, func_get_args() );
@@ -85,7 +91,6 @@ function on_shutdown_action() {
  *
  * In some cases the on_shutdown_action() function will not be called, so we have
  * this failsafe shutdown function to catch any cases where on_shutdown_action() is not called.
- *
  */
 function on_shutdown() {
 	// If we shutdown before the plugin API has loaded, return early.
@@ -109,6 +114,16 @@ function on_shutdown() {
 	}
 }
 
+/**
+ * Error handler
+ *
+ * @param int $errno
+ * @param string $errstr
+ * @param string $errfile
+ * @param int $errline
+ *
+ * @return bool
+ */
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
 	global $hm_platform_xray_errors;
 
@@ -132,6 +147,15 @@ function filter_mysql_query( $query ) {
 	return $query;
 }
 
+/**
+ * Trace request
+ *
+ * @param string $url
+ * @param array $headers
+ * @param array $data
+ * @param string $method
+ * @param array $options
+ */
 function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	$domain = parse_url( $url, PHP_URL_HOST ); // @codingStandardsIgnoreLine
 	$trace = [
@@ -184,6 +208,15 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	return $url;
 }
 
+/**
+ * Trace WBDB Query
+ *
+ * @param string $query
+ * @param float $start_time
+ * @param float $end_time
+ * @param bool $errored
+ * @param string $host
+ */
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	// Truncate long query to ensure it does not exceed max limit.
 	$query = truncate_query( $query );
@@ -279,7 +312,6 @@ function get_flattened_segments_from_trace( array $trace ) : array {
 
 /**
  * Get the root trace ID for the request
- *
  */
 function get_root_trace_id() : string {
 	static $trace_id;
@@ -287,7 +319,7 @@ function get_root_trace_id() : string {
 		return $trace_id;
 	}
 	if ( isset( $_SERVER['HTTP_X_AMZN_TRACE_ID'] ) ) {
-		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] );
+		$traces = explode( ';', $_SERVER['HTTP_X_AMZN_TRACE_ID'] ); // phpcs:ignore HM.Security.ValidatedSanitizedInput.MissingUnslash, HM.Security.ValidatedSanitizedInput.InputNotSanitized
 		$traces = array_reduce(
 			$traces, function ( $traces, $trace ) {
 				$parts = explode( '=', $trace );
@@ -310,6 +342,11 @@ function get_root_trace_id() : string {
 	return $trace_id;
 }
 
+/**
+ * Get main trace ID.
+ *
+ * @return string
+ */
 function get_main_trace_id() : string {
 	static $id;
 	if ( $id ) {
@@ -346,7 +383,7 @@ function get_in_progress_trace() : array {
 	];
 	$metadata = [
 		'$_GET'     => $_GET,
-		'$_POST'    => $_POST,
+		'$_POST'    => $_POST, // phpcs:ignore HM.Security.NonceVerification.Missing
 		'$_COOKIE'  => $_COOKIE,
 		'$_SERVER'  => $_SERVER,
 		'response' => [],
@@ -419,7 +456,7 @@ function get_end_trace() : array {
 
 	$metadata = [
 		'$_GET'        => $_GET,
-		'$_POST'       => $_POST,
+		'$_POST'       => $_POST, // phpcs:ignore HM.Security.NonceVerification.Missing
 		'$_COOKIE'     => $_COOKIE,
 		'$_SERVER'     => $_SERVER,
 		'response'     => [
@@ -437,6 +474,11 @@ function get_end_trace() : array {
 	return $trace;
 }
 
+/**
+ * Get xhprof Xray trace
+ *
+ * @return array
+ */
 function get_xhprof_xray_trace() : array {
 	$xhprof_trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', get_xhprof_trace() );
 	if ( ! $xhprof_trace ) {
@@ -451,6 +493,13 @@ function get_xhprof_xray_trace() : array {
 	return $xhprof_trace;
 }
 
+/**
+ * Get Xray segment for xhprof trace
+ *
+ * @param object $item
+ *
+ * @return array
+ */
 function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	return [
 		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\\\\\-@]~u', '', $item->name ),
@@ -461,6 +510,11 @@ function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	];
 }
 
+/**
+ * Get xhprof trace
+ *
+ * @return array
+ */
 function get_xhprof_trace() : array {
 	if ( ! function_exists( 'xhprof_sample_disable' ) ) {
 		return [];
@@ -538,6 +592,13 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 
 }
 
+/**
+ * Get error type for error number.
+ *
+ * @param int $type
+ *
+ * @return string
+ */
 function get_error_type_for_error_number( $type ) : string {
 	switch ( $type ) {
 		case E_ERROR:
@@ -586,16 +647,16 @@ function on_cloudwatch_error_handler_error( array $error ) : array {
 	return $error;
 }
 
-/*
+/**
  * Partial extraction from wp_list_pluck. Extracted in the event the function
  * hasn't yet been defined, such as when there is a fatal early in the boot
  * process.
  */
 function _pluck( $list, $field ) {
 	/*
-		* When index_key is not set for a particular item, push the value
-		* to the end of the stack. This is how array_column() behaves.
-		*/
+	 * When index_key is not set for a particular item, push the value
+	 * to the end of the stack. This is how array_column() behaves.
+	 */
 	$newlist = [];
 	foreach ( $list as $key => $value ) {
 		if ( is_object( $value ) ) {
@@ -770,6 +831,11 @@ function get_object_cache_stats() : array {
 	return $stats;
 }
 
+/**
+ * Redact metadata
+ *
+ * @param array $metadata
+ */
 function redact_metadata( $metadata ) {
 
 	$redact_keys_default = [];
