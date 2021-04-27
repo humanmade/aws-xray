@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.VariableComment.Missing, Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
+<?php // phpcs:disable Squiz.Commenting.VariableComment.Missing, Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * Query Monitor Collector
  *
@@ -10,6 +10,9 @@ namespace HM\Platform\XRay\Query_Monitor;
 use function HM\Platform\XRay\get_in_progress_trace;
 use QM_Collector;
 
+/**
+ * Query Monitor Collector class.
+ */
 class Collector extends QM_Collector {
 	public $id = 'aws-xray';
 	public $traces;

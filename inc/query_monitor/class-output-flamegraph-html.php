@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * Query Monitor Flamegraph
  *
@@ -10,6 +10,9 @@ namespace HM\Platform\XRay\Query_Monitor;
 use QM_Collector;
 use QM_Output_Html;
 
+/**
+ * Flamegraph HTML Output class.
+ */
 class Output_Flamegraph_Html extends QM_Output_Html {
 
 	public function __construct( QM_Collector $collector ) {

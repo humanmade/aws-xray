@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
 /**
  * Query Monitor Output
  *
@@ -11,6 +11,9 @@ use function HM\Platform\XRay\get_root_trace_id;
 use QM_Collector;
 use QM_Output_Html;
 
+/**
+ * Query Monitor Output.
+ */
 class Output_Html extends QM_Output_Html {
 
 	public function __construct( QM_Collector $collector ) {

@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.ClassComment.Missing, Squiz.Commenting.FunctionComment.Missing
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
 /**
  * DB Class
  *
@@ -9,6 +9,9 @@ namespace HM\Platform\XRay;
 
 use wpdb;
 
+/**
+ * WPDB Class.
+ */
 class DB extends wpdb {
 	/**
 	 * Track total time waiting for database responses;
