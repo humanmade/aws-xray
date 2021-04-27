@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.VariableComment.Missing, Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
+<?php // phpcs:disable Squiz.Commenting.VariableComment.Missing, Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * Query Monitor Collector
  *
@@ -17,6 +17,9 @@ class Collector extends QM_Collector {
 	public $id = 'aws-xray';
 	public $traces;
 
+	/**
+	 * Class constructor
+	 */
 	public function __construct() {
 		add_action( 'aws_xray.send_trace_to_daemon', [ $this, 'trace_sent_to_daemon' ] );
 		// The XRay start trace will already have been sent, so we have to backfill it.

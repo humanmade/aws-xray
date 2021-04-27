@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing
+<?php
 /**
  * Query Monitor Output
  *
@@ -16,15 +16,26 @@ use QM_Output_Html;
  */
 class Output_Html extends QM_Output_Html {
 
+	/**
+	 * Class constructor
+	 *
+	 * @param QM_Collector $collector
+	 */
 	public function __construct( QM_Collector $collector ) {
 		parent::__construct( $collector );
 		add_filter( 'qm/output/panel_menus', [ $this, 'panel_menu' ], 40 );
 	}
 
+	/**
+	 * Returns the QM Panel name.
+	 */
 	public function name() {
 		return __( 'AWS X-Ray', 'aws-xray' );
 	}
 
+	/**
+	 * Render the QM Panel output.
+	 */
 	public function output() {
 		?>
 		<?php $this->before_tabular_output(); ?>
@@ -65,6 +76,13 @@ class Output_Html extends QM_Output_Html {
 		$this->after_tabular_output();
 	}
 
+	/**
+	 * Render the QM panel
+	 *
+	 * @param array $menu
+	 *
+	 * @return array
+	 */
 	public function panel_menu( array $menu ) : array {
 		$menu['aws-xray']['title'] = __( 'AWS X-Ray', 'aws-xray' );
 		$menu['aws-xray']['href'] = '#qm-aws-xray';
