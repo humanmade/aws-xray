@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing,Squiz.Commenting.FunctionComment.MissingParamComment, Squiz.Commenting.FunctionComment.MissingParamTag
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment, Squiz.Commenting.FunctionComment.MissingParamTag
 /**
  * AWS Xray
  *
@@ -114,6 +114,16 @@ function on_shutdown() {
 	}
 }
 
+/**
+ * Error handler
+ *
+ * @param int $errno
+ * @param string $errstr
+ * @param string $errfile
+ * @param int $errline
+ *
+ * @return bool
+ */
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
 	global $hm_platform_xray_errors;
 
@@ -137,6 +147,15 @@ function filter_mysql_query( $query ) {
 	return $query;
 }
 
+/**
+ * Trace request
+ *
+ * @param string $url
+ * @param array $headers
+ * @param array $data
+ * @param string $method
+ * @param array $options
+ */
 function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	$domain = parse_url( $url, PHP_URL_HOST ); // @codingStandardsIgnoreLine
 	$trace = [
@@ -189,6 +208,15 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	return $url;
 }
 
+/**
+ * Trace WBDB Query
+ *
+ * @param string $query
+ * @param float $start_time
+ * @param float $end_time
+ * @param bool $errored
+ * @param string $host
+ */
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	// Truncate long query to ensure it does not exceed max limit.
 	$query = truncate_query( $query );
@@ -314,6 +342,11 @@ function get_root_trace_id() : string {
 	return $trace_id;
 }
 
+/**
+ * Get main trace ID.
+ *
+ * @return string
+ */
 function get_main_trace_id() : string {
 	static $id;
 	if ( $id ) {
@@ -441,6 +474,11 @@ function get_end_trace() : array {
 	return $trace;
 }
 
+/**
+ * Get xhprof Xray trace
+ *
+ * @return array
+ */
 function get_xhprof_xray_trace() : array {
 	$xhprof_trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', get_xhprof_trace() );
 	if ( ! $xhprof_trace ) {
@@ -455,6 +493,13 @@ function get_xhprof_xray_trace() : array {
 	return $xhprof_trace;
 }
 
+/**
+ * Get Xray segment for xhprof trace
+ *
+ * @param object $item
+ *
+ * @return array
+ */
 function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	return [
 		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\\\\\-@]~u', '', $item->name ),
@@ -465,6 +510,11 @@ function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	];
 }
 
+/**
+ * Get xhprof trace
+ *
+ * @return array
+ */
 function get_xhprof_trace() : array {
 	if ( ! function_exists( 'xhprof_sample_disable' ) ) {
 		return [];
@@ -542,6 +592,13 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 
 }
 
+/**
+ * Get error type for error number.
+ *
+ * @param int $type
+ *
+ * @return string
+ */
 function get_error_type_for_error_number( $type ) : string {
 	switch ( $type ) {
 		case E_ERROR:
@@ -774,6 +831,11 @@ function get_object_cache_stats() : array {
 	return $stats;
 }
 
+/**
+ * Redact metadata
+ *
+ * @param array $metadata
+ */
 function redact_metadata( $metadata ) {
 
 	$redact_keys_default = [];
