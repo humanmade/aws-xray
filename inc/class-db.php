@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * DB Class
  *
@@ -36,6 +36,9 @@ class DB extends wpdb {
 		return $result;
 	}
 
+	/**
+	 * Backtrace the WP debug caller summary.
+	 */
 	public function get_caller() {
 		return $this->wp_debug_backtrace_summary( __CLASS__ );
 	}
