@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:ignore Squiz.Commenting.FunctionComment.MissingParamComment
 /**
  * Query Monitor Output
  *
