@@ -479,7 +479,7 @@ function get_xhprof_trace() : array {
 	// Trim to stack to have a theoretical maximum, essentially reducing the resolution.
 	if ( count( $stack ) > $max_frames ) {
 		$pluck_every_n = ceil( count( $stack ) / $max_frames );
-		$sample_interval = ceil( $sample_interval * ( count( $stack ) / $max_frames ) );
+		$sample_interval = ceil( $sample_interval * $pluck_every_n );
 
 		$stack = array_filter(
 			$stack, function ( $value ) use ( $pluck_every_n ) : bool {
