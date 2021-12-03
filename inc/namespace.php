@@ -479,7 +479,7 @@ function get_xhprof_trace() : array {
 	// Trim to stack to have a theoretical maximum, essentially reducing the resolution.
 	if ( count( $stack ) > $max_frames ) {
 		$pluck_every_n = ceil( count( $stack ) / $max_frames );
-		$sample_interval = ceil( $sample_interval * ( count( $stack ) / $max_frames ) );
+		$sample_interval = ceil( $sample_interval * $pluck_every_n );
 
 		$stack = array_filter(
 			$stack, function ( $value ) use ( $pluck_every_n ) : bool {
@@ -517,11 +517,14 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 	$last_node = $nodes ? $nodes[ count( $nodes ) - 1 ] : null;
 	$this_child = $children[0];
 
+	// If this item is the same as the previous, then the call was still in
+	// progress. Increase the existing node by one more sample duration.
 	if ( $last_node && $last_node->name === $this_child ) {
 		$node            = $last_node;
 		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
+		// Not the same, so add a new node.
 		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
 			'name'       => $this_child,
 			'value'      => $sample_duration / 1000,
