@@ -1,11 +1,19 @@
 <?php
+/**
+ * AWS XRay main functionality.
+ *
+ * phpcs:disable Squiz.Commenting.FunctionComment.MissingParamComment, HM.Security.ValidatedSanitizedInput, HM.Security.NonceVerification
+ */
 
 namespace HM\Platform\XRay;
 
+use ExcimerProfiler;
 use GuzzleHttp\TransferStats;
 use WP_Object_Cache;
 
-/*
+const SAMPLE_INTERVAL = 0.05; // seconds.
+
+/**
  * Set initial values and register handlers
  */
 function bootstrap() {
@@ -20,9 +28,14 @@ function bootstrap() {
 		define( 'AWS_XRAY_DAEMON_IP_ADDRESS', '127.0.0.1' );
 	}
 
-	if ( function_exists( 'xhprof_sample_enable' ) ) {
-		ini_set( 'xhprof.sampling_interval', 5000 ); // @codingStandardsIgnoreLine
-		xhprof_sample_enable();
+	if ( use_excimer() ) {
+		$excimer = get_excimer_profiler();
+		$excimer->setEventType( EXCIMER_REAL );
+		$excimer->setPeriod( SAMPLE_INTERVAL );
+		$excimer->start();
+	} elseif ( function_exists( 'xhprof_sample_enable' ) ) {
+		ini_set( 'xhprof.sampling_interval', SAMPLE_INTERVAL * 1000000 ); // @codingStandardsIgnoreLine
+		xhprof_sample_enable(); // @codingStandardsIgnoreLine
 	}
 
 	if ( function_exists( 'add_action' ) ) {
@@ -69,8 +82,9 @@ function on_shutdown_action() {
 		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
 	}
 
-	if ( function_exists( 'xhprof_sample_enable' ) ) {
-		send_trace_to_daemon( get_xhprof_xray_trace() );
+	$profile = get_xray_profile();
+	if ( $profile ) {
+		send_trace_to_daemon( $profile );
 	}
 
 	send_trace_to_daemon( get_end_trace() );
@@ -85,7 +99,6 @@ function on_shutdown_action() {
  *
  * In some cases the on_shutdown_action() function will not be called, so we have
  * this failsafe shutdown function to catch any cases where on_shutdown_action() is not called.
- *
  */
 function on_shutdown() {
 	// If we shutdown before the plugin API has loaded, return early.
@@ -109,6 +122,15 @@ function on_shutdown() {
 	}
 }
 
+/**
+ * Error handler
+ *
+ * @param integer $errno
+ * @param string $errstr
+ * @param string|null $errfile
+ * @param int|null $errline
+ * @return boolean
+ */
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
 	global $hm_platform_xray_errors;
 
@@ -132,6 +154,17 @@ function filter_mysql_query( $query ) {
 	return $query;
 }
 
+/**
+ * Trace an HTTP request.
+ *
+ * @param string $url
+ * @param array $headers
+ * @param mixed $data
+ * @param string $method
+ * @param array $options
+ *
+ * @return string
+ */
 function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	$domain = parse_url( $url, PHP_URL_HOST ); // @codingStandardsIgnoreLine
 	$trace = [
@@ -184,6 +217,17 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
 	return $url;
 }
 
+/**
+ * Trace a DB query.
+ *
+ * @param string $query
+ * @param float $start_time
+ * @param float $end_time
+ * @param boolean $errored
+ * @param string|null $host
+ *
+ * @return void
+ */
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	// Truncate long query to ensure it does not exceed max limit.
 	$query = truncate_query( $query );
@@ -255,6 +299,8 @@ function send_trace_to_daemon( array $trace ) {
 
 /**
  * To handle traces larger than 64kb we have to flatted out the array of subsegments when required.
+ *
+ * @param array $trace
  */
 function get_flattened_segments_from_trace( array $trace ) : array {
 	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
@@ -279,7 +325,6 @@ function get_flattened_segments_from_trace( array $trace ) : array {
 
 /**
  * Get the root trace ID for the request
- *
  */
 function get_root_trace_id() : string {
 	static $trace_id;
@@ -310,6 +355,11 @@ function get_root_trace_id() : string {
 	return $trace_id;
 }
 
+/**
+ * Provide a main trace ID.
+ *
+ * @return string
+ */
 function get_main_trace_id() : string {
 	static $id;
 	if ( $id ) {
@@ -437,21 +487,40 @@ function get_end_trace() : array {
 	return $trace;
 }
 
-function get_xhprof_xray_trace() : array {
-	$xhprof_trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_xhprof_trace', get_xhprof_trace() );
-	if ( ! $xhprof_trace ) {
+/**
+ * Get callstack frames from the chosen sampling profiler.
+ *
+ * @return array
+ */
+function get_xray_profile() : array {
+	if ( use_excimer() ) {
+		$trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_trace', get_excimer_profile() );
+	} else {
+		$trace = array_map( __NAMESPACE__ . '\\get_xray_segmant_for_trace', get_xhprof_profile() );
+	}
+
+	if ( ! $trace ) {
 		return [];
 	}
-	$xhprof_trace = $xhprof_trace[0];
-	$xhprof_trace['trace_id'] = get_root_trace_id();
-	$xhprof_trace['name'] = 'xhprof';
-	$xhprof_trace['parent_id'] = get_main_trace_id();
-	$xhprof_trace['type'] = 'subsegment';
-	$xhprof_trace['in_progress'] = false;
-	return $xhprof_trace;
+
+	$trace = $trace[0];
+	$trace['trace_id'] = get_root_trace_id();
+	$trace['name'] = 'xhprof';
+	$trace['parent_id'] = get_main_trace_id();
+	$trace['type'] = 'subsegment';
+	$trace['in_progress'] = false;
+
+	return $trace;
 }
 
-function get_xray_segmant_for_xhprof_trace( $item ) : array {
+/**
+ * Get XRay segment for trace.
+ *
+ * @param mixed $item
+ *
+ * @return array
+ */
+function get_xray_segmant_for_trace( $item ) : array {
 	return [
 		'name'        => preg_replace( '~[^\\w\\s_\\.:/%&#=+\\\\\\-@]~u', '', $item->name ),
 		'subsegments' => array_map( __FUNCTION__, $item->children ),
@@ -461,7 +530,49 @@ function get_xray_segmant_for_xhprof_trace( $item ) : array {
 	];
 }
 
-function get_xhprof_trace() : array {
+/**
+ * Get callstack frames from Excimer.
+ *
+ * @return array
+ */
+function get_excimer_profile() : array {
+	global $hm_platform_xray_start_time;
+	$excimer = get_excimer_profiler();
+	$end_time = microtime( true );
+	$excimer->stop();
+	$trace = $excimer->flush();
+	$frames = explode( "\n", $trace->formatCollapsed() );
+	$sample_interval = SAMPLE_INTERVAL;
+	$time = $hm_platform_xray_start_time;
+
+	$nodes = [];
+
+	foreach ( $frames as $call_stack ) {
+		if ( ! $call_stack ) {
+			continue;
+		}
+		$call_stack = explode( ';', trim( $call_stack, ';' ) );
+		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time, $sample_interval );
+		$time += $sample_interval;
+	}
+
+	return [
+		(object) [
+			'name'       => 'main()',
+			'value'      => 1,
+			'children'   => $nodes,
+			'start_time' => $hm_platform_xray_start_time,
+			'end_time'   => $end_time,
+		],
+	];
+}
+
+/**
+ * Get callstack frames from XHProf.
+ *
+ * @return array
+ */
+function get_xhprof_profile() : array {
 	if ( ! function_exists( 'xhprof_sample_disable' ) ) {
 		return [];
 	}
@@ -511,7 +622,14 @@ function get_xhprof_trace() : array {
 }
 
 /**
- * Accepts [ Node, Node ], [ main, wp-settings, sleep ]
+ * Accepts [ Node, Node ], [ main, wp-settings, sleep ].
+ *
+ * @param array $nodes
+ * @param array $children
+ * @param float $sample_time
+ * @param float $sample_duration
+ *
+ * @return array
  */
 function add_children_to_nodes( array $nodes, array $children, float $sample_time, float $sample_duration ) : array {
 	$last_node = $nodes ? $nodes[ count( $nodes ) - 1 ] : null;
@@ -541,6 +659,13 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 
 }
 
+/**
+ * Translates an error number into its textual representation.
+ *
+ * @param int $type Error number.
+ *
+ * @return string
+ */
 function get_error_type_for_error_number( $type ) : string {
 	switch ( $type ) {
 		case E_ERROR:
@@ -589,10 +714,15 @@ function on_cloudwatch_error_handler_error( array $error ) : array {
 	return $error;
 }
 
-/*
+/**
  * Partial extraction from wp_list_pluck. Extracted in the event the function
  * hasn't yet been defined, such as when there is a fatal early in the boot
  * process.
+ *
+ * @param mixed $list
+ * @param text $field
+ *
+ * @return array
  */
 function _pluck( $list, $field ) {
 	/*
@@ -773,6 +903,13 @@ function get_object_cache_stats() : array {
 	return $stats;
 }
 
+/**
+ * Redact select metadata from output.
+ *
+ * @param array $metadata
+ *
+ * @return array
+ */
 function redact_metadata( $metadata ) {
 
 	$redact_keys_default = [];
@@ -824,4 +961,26 @@ function truncate_query( string $query, int $max_size = 5 * 1024, string $replac
 
 	// Truncate query in the middle.
 	return substr_replace( $query, $replacement, $max_size / 2, mb_strlen( $query ) - $max_size + strlen( $replacement ) );
+}
+
+/**
+ * Check whether to use PHP Excimer for profiling.
+ *
+ * @return boolean
+ */
+function use_excimer() : bool {
+	return class_exists( 'ExcimerProfiler' );
+}
+
+/**
+ * Get the PHP Excimer profiler object
+ *
+ * @return ExcimerProfiler
+ */
+function get_excimer_profiler() : ExcimerProfiler {
+	static $excimer = null;
+	if ( ! $excimer ) {
+		$excimer = new ExcimerProfiler;
+	}
+	return $excimer;
 }
