@@ -642,14 +642,6 @@ function add_children_to_nodes( array $nodes, array $children, float $sample_tim
 		$node->value    += ( $sample_duration / 1000 );
 		$node->end_time += $sample_duration;
 	} else {
-		/*
-		TODO: Debugging code, did we have a bug here ?
-		if ( ! $this_child ) {
-			print_r( $children );
-			exit;
-		}
-		*/
-
 		// Not the same, so add a new node.
 		$nodes[] = $node = (object) [  // @codingStandardsIgnoreLine
 			'name'       => $this_child,
