@@ -79,7 +79,7 @@ function on_shutdown_action() {
 	// Check if we were shut down by an error.
 	$last_error = error_get_last();
 	if ( $last_error ) {
-		call_user_func_array( __NAMESPACE__ . '\\error_handler', $last_error );
+		call_user_func_array( __NAMESPACE__ . '\\error_handler', array_values( $last_error ) );
 	}
 
 	$profile = get_xray_profile();
