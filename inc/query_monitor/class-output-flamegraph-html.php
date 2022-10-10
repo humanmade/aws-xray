@@ -49,6 +49,30 @@ class Output_Flamegraph_Html extends QM_Output_Html {
 				<?php endif ?>
 			</h2>
 		</caption>
+		<style>
+			.aws-xray-flamegraph {
+				width: 100%;
+			}
+
+			.d3-flame-graph rect {
+				stroke: #fff;
+			}
+
+			.d3-flame-graph foreignObject {
+				cursor: pointer;
+			}
+
+			.d3-flame-graph foreignObject:hover {
+				background-color: rgba( 255, 255, 255, 0.3 );
+			}
+
+			.d3-flame-graph foreignObject div {
+				margin: 0 3px;
+				color: #000;
+				font-size: 10px;
+				overflow: hidden;
+			}
+		</style>
 		<div class="aws-xray-flamegraph"><?php echo wp_json_encode( $xhprof ) ?></div>
 		<?php
 

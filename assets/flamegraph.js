@@ -148,9 +148,9 @@ function flameGraph() {
 			name = name.split( '(' )[0]; // drop extra info
 			vector = generateHash( name );
 		}
-		let r = 200 + Math.round( 55 * vector );
-		let g = 0 + Math.round( 230 * ( 1 - vector ) );
-		let b = 0 + Math.round( 55 * ( 1 - vector ) );
+		let r = 50 + Math.round(60 * vector);
+		let g = 165 + Math.round(55 * vector);
+		let b = g;
 		return 'rgb(' + r + ',' + g + ',' + b + ')';
 	}
 
@@ -361,7 +361,7 @@ function flameGraph() {
 				.select( 'div' )
 				.attr( 'class', 'd3-flame-graph-label' )
 				.style( 'display', function ( d ) {
-					return width( d ) < 35 ? 'none' : 'block';
+					return 'block';
 				} )
 				.transition()
 				.delay( transitionDuration )
@@ -624,8 +624,10 @@ jQuery( document ).ready( function() {
 		var data = segmentToItem( JSON.parse( el.innerHTML ) );
 		el.innerHTML = '';
 		var flamegraph = flameGraph()
-			.width( 940 )
-			.cellHeight( 18 );
+			.width( Math.max( 940, jQuery('#qm-aws-xray-flamegraph').width() ) )
+			.cellHeight( 20 )
+			.transitionDuration( 250 )
+			.reversed( true );
 
 		d3.select( el )
 			.datum( data )
