@@ -11,7 +11,7 @@ use ExcimerProfiler;
 use GuzzleHttp\TransferStats;
 use WP_Object_Cache;
 
-const SAMPLE_INTERVAL = 0.05; // seconds.
+const SAMPLE_INTERVAL = 0.005; // seconds.
 
 /**
  * Set initial values and register handlers
