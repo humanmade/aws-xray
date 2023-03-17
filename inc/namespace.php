@@ -882,7 +882,7 @@ function get_object_cache_stats() : array {
 		$stats = [
 			'remote_calls' => $stats->redis_total_calls,
 			// Expected to be in seconds, redis_total_time is in microseconds.
-			'time' => $stats->redis_total_time / 1_000_000,
+			'time' => $stats->redis_total_time / 1000000,
 			'hits' => 0,
 			'misses' => 0,
 		];
