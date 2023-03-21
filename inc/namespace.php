@@ -877,6 +877,17 @@ function get_object_cache_trace() : ?array {
  * }
  */
 function get_object_cache_stats() : array {
+	if ( function_exists( 'Afterburner\ObjectCache\getRequestStats' ) ) {
+		$stats = \Afterburner\ObjectCache\getRequestStats();
+		$stats = [
+			'remote_calls' => $stats->redis_total_calls,
+			// Expected to be in seconds, redis_total_time is in microseconds.
+			'time' => $stats->redis_total_time / 1000000,
+			'hits' => 0,
+			'misses' => 0,
+		];
+		return $stats;
+	}
 	global $wp_object_cache;
 	if ( ! $wp_object_cache || ! $wp_object_cache instanceof WP_Object_Cache ) {
 		return [];
