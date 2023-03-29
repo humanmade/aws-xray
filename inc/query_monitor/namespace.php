@@ -62,5 +62,5 @@ function maybe_enqueue_assets() {
 		return;
 	}
 
-	wp_enqueue_script( 'aws-xray-flamegraph', plugin_dir_url( dirname( __FILE__, 2 ) ) . 'assets/flamegraph.js', [], '2019-11-13' );
+	wp_enqueue_script( 'aws-xray-flamegraph', plugin_dir_url( dirname( __FILE__, 2 ) ) . 'assets/flamegraph.js', [], '2022-10-10' );
 }
