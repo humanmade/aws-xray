@@ -922,8 +922,9 @@ function get_object_cache_stats() : array {
  * @return array
  */
 function redact_metadata( $metadata ) {
+	global $xray_redact_keys;
 
-	$redact_keys_default = [];
+	$redact_keys_default = (array) ( $xray_redact_keys ?? [] );
 	if ( function_exists( 'apply_filters' ) ) {
 		$redact_keys_default = apply_filters( 'aws_xray.redact_metadata_keys', $redact_keys_default );
 	}
