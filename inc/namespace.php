@@ -230,7 +230,7 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
  */
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	// Truncate long query to ensure it does not exceed max limit.
-	$query = truncate_query( $query );
+	$query = truncate_value( $query );
 
 	$trace = [
 		'name'       => $host ?: DB_HOST,
@@ -402,6 +402,7 @@ function get_in_progress_trace() : array {
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
+	$trace['metadata'] = truncate_metadata( $metadata );
 
 	return $trace;
 }
@@ -483,6 +484,7 @@ function get_end_trace() : array {
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
+	$trace['metadata'] = truncate_metadata( $metadata );
 	$trace['annotations'] = $annotations;
 	return $trace;
 }
@@ -957,21 +959,42 @@ function redact_metadata( $metadata ) {
 }
 
 /**
- * Truncate sql query to given maximum size.
+ * Maps array values using a callback recursively.
  *
- * @param string $query       SQL Query to truncate.
+ * @param callable $func The function to apply to leaf nodes.
+ * @param array $array The array to modify.
+ * @return array
+ */
+function array_map_recursive( callable $func, array $array ) {
+    return filter_var( $array, FILTER_CALLBACK, [ 'options' => $func ] );
+}
+
+/**
+ * Truncate values in the metadata for a trace.
+ *
+ * @param array $metadata The trace metadata.
+ * @return array
+ */
+function truncate_metadata( $metadata ) {
+	return array_map_recursive( __NAMESPACE__ . '\\truncate_value', $metadata );
+}
+
+/**
+ * Truncate value to given maximum size.
+ *
+ * @param string $value       Value to truncate.
  * @param int    $max_size    Maximum size in bytes, default 5KB.
  * @param string $replacement String replacement.
  *
  * @return string
  */
-function truncate_query( string $query, int $max_size = 5 * 1024, string $replacement = '…' ) : string {
-	if ( mb_strlen( $query ) < $max_size ) {
-		return $query;
+function truncate_value( string $value, int $max_size = 5 * 1024, string $replacement = '…' ) : string {
+	if ( mb_strlen( $value ) < $max_size ) {
+		return $value;
 	}
 
 	// Truncate query in the middle.
-	return substr_replace( $query, $replacement, $max_size / 2, mb_strlen( $query ) - $max_size + strlen( $replacement ) );
+	return substr_replace( $value, $replacement, $max_size / 2, mb_strlen( $value ) - $max_size + strlen( $replacement ) );
 }
 
 /**
