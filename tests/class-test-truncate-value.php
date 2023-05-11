@@ -25,9 +25,9 @@ class Test_Truncate_Value extends TestCase {
 			$long_text
 		);
 
-		$redacted = truncate_value( $super_long_query, $max_size );
+		$truncated = truncate_value( $super_long_query, $max_size );
 
-		$this->assertTrue( mb_strlen( $redacted ) <= $max_size );
+		$this->assertTrue( mb_strlen( $truncated ) <= $max_size );
 	}
 
 	/**
@@ -41,57 +41,68 @@ class Test_Truncate_Value extends TestCase {
 			$long_text
 		);
 
-		$redacted = truncate_value( $query, $max_size );
+		$truncated = truncate_value( $query, $max_size );
 
-		$this->assertTrue( mb_strlen( $redacted ) <= $max_size );
-		$this->assertEquals( $query, $redacted );
+		$this->assertTrue( mb_strlen( $truncated ) <= $max_size );
+		$this->assertEquals( $query, $truncated );
 
 	}
 
 	/**
-	 * Test truncate long metadata
+	 * Test truncate long trace
 	 */
-	function test_truncate_long_metadata() {
-		$max_size  = 5 * 1024;
+	function test_truncate_long_trace() {
+		$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
+		$max_value_size = 1024; // 1 KB values.
 
 		$metadata = [
-			'$_GET' => $this->generate_random_array( 5, $max_size * 2 ),
-			'$_POST' => $this->generate_random_array( 50, $max_size * 2 ),
-			'$_COOKIE' => $this->generate_random_array( 40, $max_size * 2 ),
-			'$_SERVER' => $_SERVER,
+			'$_GET' => $this->generate_random_array( 5, $max_value_size ),
+			'$_POST' => $this->generate_random_array( 50, $max_value_size * 2 ),
+			'$_COOKIE' => $this->generate_random_array( 20, 128 ),
 			'response' => [
 				'headers' => headers_list(),
 			],
 		];
 
-		$size = mb_strlen( serialize( $metadata ) );
-		$truncated = truncate_metadata( $metadata );
-		$truncated_size = mb_strlen( serialize( $truncated ) );
+		$trace = [
+			'metadata' => $metadata,
+		];
 
-		$this->assertTrue( $truncated_size < $size );
+		$size = mb_strlen( json_encode( $trace ) );
+		$truncated = truncate_trace( $trace );
+		$truncated_size = mb_strlen( json_encode( $truncated ) );
+
+		$this->assertGreaterThan( $max_size, $size, 'Trace size is greater than max packet size' );
+		$this->assertGreaterThan( $truncated_size, $max_size, 'Truncated size is greater than max packet size' );
 	}
 
 	/**
-	 * Test truncate short metadata
+	 * Test truncate short trace
 	 */
-	function test_truncate_short_metadata() {
-		$max_size  = 5 * 1024;
+	function test_truncate_short_trace() {
+		$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
+		$max_value_size = 512; // 512B values.
 
 		$metadata = [
-			'$_GET' => $this->generate_random_array( 5, $max_size / 2 ),
-			'$_POST' => $this->generate_random_array( 50, $max_size ),
-			'$_COOKIE' => $this->generate_random_array( 40, $max_size / 2 ),
-			'$_SERVER' => $_SERVER,
+			'$_GET' => $this->generate_random_array( 3, $max_value_size ),
+			'$_POST' => $this->generate_random_array( 8, $max_value_size ),
+			'$_COOKIE' => $this->generate_random_array( 3, $max_value_size ),
 			'response' => [
 				'headers' => headers_list(),
 			],
 		];
 
-		$size = mb_strlen( serialize( $metadata ) );
-		$truncated = truncate_metadata( $metadata );
-		$truncated_size = mb_strlen( serialize( $truncated ) );
+		$trace = [
+			'metadata' => $metadata,
+		];
 
-		$this->assertEquals( $truncated_size, $size );
+		$size = mb_strlen( json_encode( $trace ) );
+		$truncated = truncate_trace( $trace );
+		$truncated_size = mb_strlen( json_encode( $truncated ) );
+
+		$this->assertEquals( json_encode( $trace ), json_encode( $truncated ), 'A small truncated trace is not the same as the original trace' );
+		$this->assertEquals( $truncated_size, $size, 'Truncated trace size is not equal to original trace size' );
+		$this->assertGreaterThan( $truncated_size, $max_size, 'Truncated size is greater than the max packet size' );
 	}
 
 	/**
@@ -116,7 +127,10 @@ class Test_Truncate_Value extends TestCase {
 	 * @return array
 	 */
 	function generate_random_array( int $length, int $value_length ): array {
-		$keys = array_fill( 0, $length, $this->generate_random_string( 32 ) );
-		return array_fill_keys( $keys, $this->generate_random_string( $value_length ) );
+		$out = [];
+		for ( $i = 0; $i < $length; $i++ ) {
+			$out[ $this->generate_random_string( 24 ) ] = $this->generate_random_string( $value_length );
+		}
+		return $out;
 	}
 }

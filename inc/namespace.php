@@ -305,7 +305,12 @@ function send_trace_to_daemon( array $trace ) {
 function get_flattened_segments_from_trace( array $trace ) : array {
 	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
 	$segments = [];
-	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < $max_size ) { // @codingStandardsIgnoreLine wp_json_encode not available.
+	$size = mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+	if ( empty( $trace['subsegments'] ) || $size < $max_size ) {
+		// Truncate values until the trace is small enough to deliver.
+		if ( $size > $max_size ) {
+			$trace = truncate_trace( $trace );
+		}
 		return [ $trace ];
 	}
 
@@ -402,7 +407,6 @@ function get_in_progress_trace() : array {
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
-	$trace['metadata'] = truncate_metadata( $metadata );
 
 	return $trace;
 }
@@ -484,7 +488,6 @@ function get_end_trace() : array {
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
-	$trace['metadata'] = truncate_metadata( $metadata );
 	$trace['annotations'] = $annotations;
 	return $trace;
 }
@@ -965,8 +968,12 @@ function redact_metadata( $metadata ) {
  * @param array $array The array to modify.
  * @return array
  */
-function array_map_recursive( callable $func, array $array ) {
-    return filter_var( $array, FILTER_CALLBACK, [ 'options' => $func ] );
+function array_map_recursive( $callback, $array ) {
+	$func = function ( $item ) use ( &$func, &$callback ) {
+		return is_array( $item ) ? array_map( $func, $item ) : call_user_func( $callback, $item );
+	};
+
+	return array_map( $func, $array );
 }
 
 /**
@@ -975,26 +982,48 @@ function array_map_recursive( callable $func, array $array ) {
  * @param array $metadata The trace metadata.
  * @return array
  */
-function truncate_metadata( $metadata ) {
-	return array_map_recursive( __NAMESPACE__ . '\\truncate_value', $metadata );
+function truncate_trace( $trace ) {
+	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
+	$trace_size = mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+
+	if ( $trace_size <= $max_size ) {
+		return $trace;
+	}
+
+	// Metadata is currently the only target for truncation.
+	if ( ! isset( $trace['metadata'] ) ) {
+		return $trace;
+	}
+
+	// Find the amount of bytes we need to restrict metadata values to.
+	$metadata_size = mb_strlen( json_encode( $trace['metadata'] ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+	$metadata_max_size = $max_size - ( $trace_size - $metadata_size );
+	$metadata_count = count( $trace['metadata'], COUNT_RECURSIVE );
+	$max_value_length = floor( $metadata_max_size / $metadata_count );
+
+	$trace['metadata'] = array_map_recursive( function ( $value ) use ( $max_value_length ) {
+		return truncate_value( $value, max( 0, $max_value_length ) );
+	}, $trace['metadata'] );
+
+	return $trace;
 }
 
 /**
- * Truncate value to given maximum size.
+ * Truncate scalar values to given maximum size.
  *
- * @param string $value       Value to truncate.
+ * @param mixed  $value       Value to truncate.
  * @param int    $max_size    Maximum size in bytes, default 5KB.
  * @param string $replacement String replacement.
  *
- * @return string
+ * @return mixed
  */
-function truncate_value( string $value, int $max_size = 5 * 1024, string $replacement = '…' ) : string {
+function truncate_value( $value, int $max_size = 5 * 1024, string $replacement = '…' ) {
 	if ( mb_strlen( $value ) < $max_size ) {
 		return $value;
 	}
 
 	// Truncate query in the middle.
-	return substr_replace( $value, $replacement, $max_size / 2, mb_strlen( $value ) - $max_size + strlen( $replacement ) );
+	return substr_replace( (string) $value, $replacement, $max_size / 2, mb_strlen( $value ) - $max_size + strlen( $replacement ) );
 }
 
 /**
