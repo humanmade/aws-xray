@@ -399,7 +399,8 @@ function get_in_progress_trace() : array {
 		'$_POST' => $_POST,
 		'$_COOKIE' => $_COOKIE,
 		'$_SERVER' => $_SERVER,
-		'php://input' => file_get_contents( 'php://input' ),
+		'$_FILES' => $_FILES,
+		'php://input' => in_array( $_SERVER['REQUEST_METHOD'], [ 'POST', 'PUT', 'PATCH' ], true ) ? file_get_contents( 'php://input' ) : '',
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
@@ -473,7 +474,8 @@ function get_end_trace() : array {
 		'$_POST' => $_POST,
 		'$_COOKIE' => $_COOKIE,
 		'$_SERVER' => $_SERVER,
-		'php://input'  => file_get_contents( 'php://input' ),
+		'$_FILES' => $_FILES,
+		'php://input' => in_array( $_SERVER['REQUEST_METHOD'], [ 'POST', 'PUT', 'PATCH' ], true ) ? file_get_contents( 'php://input' ) : '',
 		'response' => [
 			'headers' => headers_list(),
 		],
