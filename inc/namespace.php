@@ -964,7 +964,7 @@ function redact_metadata( $metadata ) {
 /**
  * Maps array values using a callback recursively.
  *
- * @param callable $func The function to apply to leaf nodes.
+ * @param callable $callback The function to apply to leaf nodes.
  * @param array $array The array to modify.
  * @return array
  */
@@ -979,7 +979,7 @@ function array_map_recursive( $callback, $array ) {
 /**
  * Truncate values in the metadata for a trace.
  *
- * @param array $metadata The trace metadata.
+ * @param array $trace The trace metadata.
  * @return array
  */
 function truncate_trace( $trace ) {
