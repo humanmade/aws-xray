@@ -230,7 +230,7 @@ function trace_requests_request( $url, $headers, $data, $method, $options ) {
  */
 function trace_wpdb_query( string $query, float $start_time, float $end_time, $errored, $host = null ) {
 	// Truncate long query to ensure it does not exceed max limit.
-	$query = truncate_query( $query );
+	$query = truncate_value( $query );
 
 	$trace = [
 		'name'       => $host ?: DB_HOST,
@@ -305,7 +305,10 @@ function send_trace_to_daemon( array $trace ) {
 function get_flattened_segments_from_trace( array $trace ) : array {
 	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
 	$segments = [];
-	if ( empty( $trace['subsegments'] ) || mb_strlen( json_encode( $trace ) ) < $max_size ) { // @codingStandardsIgnoreLine wp_json_encode not available.
+	$size = mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+	if ( empty( $trace['subsegments'] ) || $size < $max_size ) {
+		// Truncate values until the trace is small enough to deliver.
+		$trace = truncate_trace( $trace, $size );
 		return [ $trace ];
 	}
 
@@ -957,21 +960,61 @@ function redact_metadata( $metadata ) {
 }
 
 /**
- * Truncate sql query to given maximum size.
+ * Truncate values in the metadata for a trace.
  *
- * @param string $query       SQL Query to truncate.
+ * @param array $trace The trace metadata.
+ * @param int|null $trace_size Optional full trace size if it has already been calculated.
+ * @return array
+ */
+function truncate_trace( $trace, ?int $trace_size = null ) {
+	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
+	$trace_size = $trace_size ?? mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+
+	if ( $trace_size <= $max_size ) {
+		return $trace;
+	}
+
+	// Metadata is currently the only target for truncation.
+	if ( ! isset( $trace['metadata'] ) ) {
+		return $trace;
+	}
+
+	$metadata_size = mb_strlen( json_encode( $trace['metadata'] ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+
+	// If truncating the metadata won't get us under the size limit then there's no
+	// point in further processing.
+	if ( $trace_size - $metadata_size > $max_size ) {
+		return $trace;
+	}
+
+	// Find the amount of bytes we need to restrict metadata values to.
+	$metadata_max_size = $max_size - ( $trace_size - $metadata_size );
+	$metadata_count = count( $trace['metadata'], COUNT_RECURSIVE );
+	$max_value_length = floor( $metadata_max_size / $metadata_count );
+
+	$trace['metadata'] = array_walk_recursive( $trace['metadata'], function ( &$value ) use ( $max_value_length ) {
+		$value = truncate_value( $value, max( 0, $max_value_length ) );
+	} );
+
+	return $trace;
+}
+
+/**
+ * Truncate scalar values to given maximum size.
+ *
+ * @param mixed  $value       Value to truncate.
  * @param int    $max_size    Maximum size in bytes, default 5KB.
  * @param string $replacement String replacement.
  *
- * @return string
+ * @return mixed
  */
-function truncate_query( string $query, int $max_size = 5 * 1024, string $replacement = '…' ) : string {
-	if ( mb_strlen( $query ) < $max_size ) {
-		return $query;
+function truncate_value( $value, int $max_size = 5 * 1024, string $replacement = '…' ) {
+	if ( mb_strlen( $value ) < $max_size ) {
+		return $value;
 	}
 
 	// Truncate query in the middle.
-	return substr_replace( $query, $replacement, $max_size / 2, mb_strlen( $query ) - $max_size + strlen( $replacement ) );
+	return substr_replace( (string) $value, $replacement, $max_size / 2, mb_strlen( $value ) - $max_size + strlen( $replacement ) );
 }
 
 /**
