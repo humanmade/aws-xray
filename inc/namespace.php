@@ -962,7 +962,8 @@ function redact_metadata( $metadata ) {
 /**
  * Truncate values in the metadata for a trace.
  *
- * @param array $metadata The trace metadata.
+ * @param array $trace The trace metadata.
+ * @param int|null $trace_size Optional full trace size if it has already been calculated.
  * @return array
  */
 function truncate_trace( $trace, ?int $trace_size = null ) {
