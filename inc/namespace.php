@@ -308,9 +308,7 @@ function get_flattened_segments_from_trace( array $trace ) : array {
 	$size = mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
 	if ( empty( $trace['subsegments'] ) || $size < $max_size ) {
 		// Truncate values until the trace is small enough to deliver.
-		if ( $size > $max_size ) {
-			$trace = truncate_trace( $trace );
-		}
+		$trace = truncate_trace( $trace, $size );
 		return [ $trace ];
 	}
 
@@ -962,29 +960,14 @@ function redact_metadata( $metadata ) {
 }
 
 /**
- * Maps array values using a callback recursively.
- *
- * @param callable $func The function to apply to leaf nodes.
- * @param array $array The array to modify.
- * @return array
- */
-function array_map_recursive( $callback, $array ) {
-	$func = function ( $item ) use ( &$func, &$callback ) {
-		return is_array( $item ) ? array_map( $func, $item ) : call_user_func( $callback, $item );
-	};
-
-	return array_map( $func, $array );
-}
-
-/**
  * Truncate values in the metadata for a trace.
  *
  * @param array $metadata The trace metadata.
  * @return array
  */
-function truncate_trace( $trace ) {
+function truncate_trace( $trace, ?int $trace_size = null ) {
 	$max_size = 63 * 1024; // 63 KB, leaving room for UDP headers etc.
-	$trace_size = mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+	$trace_size = $trace_size ?? mb_strlen( json_encode( $trace ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
 
 	if ( $trace_size <= $max_size ) {
 		return $trace;
@@ -995,15 +978,22 @@ function truncate_trace( $trace ) {
 		return $trace;
 	}
 
-	// Find the amount of bytes we need to restrict metadata values to.
 	$metadata_size = mb_strlen( json_encode( $trace['metadata'] ) ); // @codingStandardsIgnoreLine wp_json_encode not available.
+
+	// If truncating the metadata won't get us under the size limit then there's no
+	// point in further processing.
+	if ( $trace_size - $metadata_size > $max_size ) {
+		return $trace;
+	}
+
+	// Find the amount of bytes we need to restrict metadata values to.
 	$metadata_max_size = $max_size - ( $trace_size - $metadata_size );
 	$metadata_count = count( $trace['metadata'], COUNT_RECURSIVE );
 	$max_value_length = floor( $metadata_max_size / $metadata_count );
 
-	$trace['metadata'] = array_map_recursive( function ( $value ) use ( $max_value_length ) {
-		return truncate_value( $value, max( 0, $max_value_length ) );
-	}, $trace['metadata'] );
+	$trace['metadata'] = array_walk_recursive( $trace['metadata'], function ( &$value ) use ( $max_value_length ) {
+		$value = truncate_value( $value, max( 0, $max_value_length ) );
+	} );
 
 	return $trace;
 }
