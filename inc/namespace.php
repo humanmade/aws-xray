@@ -554,8 +554,18 @@ function get_excimer_profile() : array {
 		if ( ! $call_stack ) {
 			continue;
 		}
+		// Format of callstack is `call1;call2 2` for e.g. 2 frames. This differs from XHProf,
+		// which will typically output a single frame per line.
 		$call_stack = explode( ';', trim( $call_stack, ';' ) );
-		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time, $sample_interval );
+
+		// Split the last item into the frame count and replace the last item with the callstack without
+		// the frame count.
+		$last = $call_stack[ count( $call_stack ) - 1 ];
+		$last = explode( ' ', $last );
+		$call_stack[ count( $call_stack ) - 1 ] = $last[0];
+		$frame_count = $last[1] ?? 1;
+
+		$nodes = add_children_to_nodes( $nodes, $call_stack, (float) $time, $sample_interval * $frame_count );
 		$time += $sample_interval;
 	}
 
