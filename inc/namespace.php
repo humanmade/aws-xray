@@ -383,7 +383,7 @@ function get_in_progress_trace() : array {
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
-		'start_time' => $hm_platform_xray_start_time,
+		'start_time' => (float) $_SERVER['REQUEST_TIME_FLOAT'] ?? $hm_platform_xray_start_time,
 		'service'    => [
 			'version' => defined( 'HM_DEPLOYMENT_REVISION' ) ? HM_DEPLOYMENT_REVISION : 'dev',
 		],
@@ -405,7 +405,9 @@ function get_in_progress_trace() : array {
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
-
+	$trace['annotations'] = [
+		'fpmQueueTime' => $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'],
+	];
 	return $trace;
 }
 
@@ -432,7 +434,7 @@ function get_end_trace() : array {
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
 		'id'         => get_main_trace_id(),
 		'trace_id'   => get_root_trace_id(),
-		'start_time' => $hm_platform_xray_start_time,
+		'start_time' => (float) $_SERVER['REQUEST_TIME_FLOAT'] ?? $hm_platform_xray_start_time,
 		'end_time'   => microtime( true ),
 		'user'       => $user,
 		'service'    => [
@@ -483,6 +485,7 @@ function get_end_trace() : array {
 
 	$annotations = [
 		'memoryUsage' => memory_get_peak_usage() / 1048576, // Convert bytes to mb.
+		'fpmQueueTime' => $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'],
 	];
 
 	$trace['metadata'] = redact_metadata( $metadata );
