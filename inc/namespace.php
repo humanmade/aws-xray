@@ -19,9 +19,10 @@ const SAMPLE_INTERVAL = 0.005; // seconds.
 function bootstrap() {
 	$GLOBALS['hm_platform_xray_errors'] = [];
 
-	global $hm_platform_xray_start_time;
+	global $hm_platform_xray_start_time, $hm_platform_xray_start_rusage;
 	if ( ! $hm_platform_xray_start_time ) {
 		$hm_platform_xray_start_time = microtime( true );
+		$hm_platform_xray_start_rusage = getrusage();
 	}
 
 	if ( ! defined( 'AWS_XRAY_DAEMON_IP_ADDRESS' ) ) {
@@ -413,7 +414,7 @@ function get_in_progress_trace() : array {
  * Get the final trace for the main segment.
  */
 function get_end_trace() : array {
-	global $hm_platform_xray_start_time, $hm_platform_xray_errors;
+	global $hm_platform_xray_start_time, $hm_platform_xray_start_rusage, $hm_platform_xray_errors;
 	if ( ! $hm_platform_xray_errors ) {
 		$hm_platform_xray_errors = [];
 	}
@@ -427,6 +428,18 @@ function get_end_trace() : array {
 		'db'           => get_wpdb_stats(),
 		'remote'       => get_remote_requests_stats(),
 	];
+
+	if ( $hm_platform_xray_start_rusage ) {
+		$end_usage = getrusage();
+		$user_seconds = ( $end_usage['ru_utime.tv_usec'] - $hm_platform_xray_start_rusage['ru_utime.tv_usec'] ) / 1000000;
+		$system_seconds = ( $end_usage['ru_stime.tv_usec'] - $hm_platform_xray_start_rusage['ru_stime.tv_usec'] ) / 1000000;
+
+		$stats['cpu'] = [
+			'user_time' => $user_seconds,
+			'sys_time' => $system_seconds,
+			'total_time' => $user_seconds + $system_seconds,
+		];
+	}
 
 	$trace = [
 		'name'       => defined( 'HM_ENV' ) ? HM_ENV : 'local',
