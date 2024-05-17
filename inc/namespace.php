@@ -405,9 +405,14 @@ function get_in_progress_trace() : array {
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
-	$trace['annotations'] = [
-		'fpmQueueTime' => $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'],
-	];
+
+	$annotations = [];
+
+	if ( isset( $_SERVER['REQUEST_TIME_FLOAT'] ) && isset( $_SERVER['NGINX_REQUEST_TIME'] ) ) {
+		$annotations['fpmQueueTime'] = $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'];
+	}
+	$trace['annotations'] = $annotations;
+
 	return $trace;
 }
 
@@ -485,8 +490,11 @@ function get_end_trace() : array {
 
 	$annotations = [
 		'memoryUsage' => memory_get_peak_usage() / 1048576, // Convert bytes to mb.
-		'fpmQueueTime' => $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'],
 	];
+
+	if ( isset( $_SERVER['REQUEST_TIME_FLOAT'] ) && isset( $_SERVER['NGINX_REQUEST_TIME'] ) ) {
+		$annotations['fpmQueueTime'] = $_SERVER['REQUEST_TIME_FLOAT'] - $_SERVER['NGINX_REQUEST_TIME'];
+	}
 
 	$trace['metadata'] = redact_metadata( $metadata );
 	$trace['annotations'] = $annotations;
