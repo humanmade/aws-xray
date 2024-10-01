@@ -920,8 +920,12 @@ function get_object_cache_stats() : array {
 			'remote_calls' => $stats->redis_total_calls,
 			// Expected to be in seconds, redis_total_time is in microseconds.
 			'time' => $stats->redis_total_time / 1000000,
-			'hits' => 0,
-			'misses' => 0,
+			'hits' => $stats->request_cache_hits,
+			'misses' => $stats->request_cache_misses,
+			'lru_cache_misses' => $stats->lru_cache_misses,
+			'lru_cache_hits' => $stats->lru_cache_hits,
+			'lru_cache_items' => $stats->lru_cache_items,
+			'lru_cache_size' => $stats->lru_cache_size,
 		];
 		return $stats;
 	}
