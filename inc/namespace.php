@@ -394,6 +394,7 @@ function get_in_progress_trace() : array {
 				'method'    => $_SERVER['REQUEST_METHOD'],
 				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'],
 			],
 		],
 		'in_progress' => true,
@@ -464,6 +465,7 @@ function get_end_trace() : array {
 				'method'    => $_SERVER['REQUEST_METHOD'],
 				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'],
 			],
 			'response' => [
 				'status' => http_response_code(),
