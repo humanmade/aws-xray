@@ -439,13 +439,20 @@ function get_end_trace() : array {
 
 	if ( $hm_platform_xray_start_rusage ) {
 		$end_usage = getrusage();
-		$user_seconds = ( $end_usage['ru_utime.tv_usec'] - $hm_platform_xray_start_rusage['ru_utime.tv_usec'] ) / 1000000;
-		$system_seconds = ( $end_usage['ru_stime.tv_usec'] - $hm_platform_xray_start_rusage['ru_stime.tv_usec'] ) / 1000000;
+
+		// ru_utime/ru_stime are "timevalue" structs, consisting of an int seconds (tv_sec) and an int microseconds (tv_usec).
+		// We need to assemble these into floats. We perform the diff maths *before* division to avoid rounding errors.
+		$user_sec = $end_usage['ru_utime.tv_sec'] - $hm_platform_xray_start_rusage['ru_utime.tv_sec'];
+		$user_usec = $end_usage['ru_utime.tv_usec'] - $hm_platform_xray_start_rusage['ru_utime.tv_usec'];
+		$user_total = $user_sec + ( $user_usec / 1000000 );
+		$sys_sec = $end_usage['ru_stime.tv_sec'] - $hm_platform_xray_start_rusage['ru_stime.tv_sec'];
+		$sys_usec = $end_usage['ru_stime.tv_usec'] - $hm_platform_xray_start_rusage['ru_stime.tv_usec'];
+		$sys_total = $sys_sec + ( $sys_usec / 1000000 );
 
 		$stats['cpu'] = [
-			'user_time' => $user_seconds,
-			'sys_time' => $system_seconds,
-			'total_time' => $user_seconds + $system_seconds,
+			'user_time' => $user_total,
+			'sys_time' => $sys_total,
+			'total_time' => $user_total + $sys_total,
 		];
 	}
 
