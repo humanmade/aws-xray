@@ -736,7 +736,7 @@ function get_error_type_for_error_number( $type ) : string {
 			return 'E_USER_WARNING';
 		case E_USER_NOTICE:
 			return 'E_USER_NOTICE';
-		case 2048: // E_STRICT is deprecated in PHP8.4
+		case 2048: // E_STRICT is deprecated in PHP8.4.
 			return 'E_STRICT';
 		case E_RECOVERABLE_ERROR:
 			return 'E_RECOVERABLE_ERROR';
