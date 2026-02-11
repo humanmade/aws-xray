@@ -925,12 +925,30 @@ function get_object_cache_trace() : ?array {
 function get_object_cache_stats() : array {
 	if ( function_exists( 'Afterburner\ObjectCache\getRequestStats' ) ) {
 		$stats = \Afterburner\ObjectCache\getRequestStats();
+		global $wp_object_cache;
+
+		if ( isset( $stats->request_cache_hits ) ) {
+			$hits = $stats->request_cache_hits;
+		} elseif ( isset( $wp_object_cache->cache_hits ) ) {
+			$hits = $wp_object_cache->cache_hits;
+		} else {
+			$hits = 0;
+		}
+
+		if ( isset( $stats->request_cache_misses ) ) {
+			$misses = $stats->request_cache_misses;
+		} elseif ( isset( $wp_object_cache->cache_misses ) ) {
+			$misses = $wp_object_cache->cache_misses;
+		} else {
+			$misses = 0;
+		}
+
 		$stats = [
 			'remote_calls' => $stats->redis_total_calls,
 			// Expected to be in seconds, redis_total_time is in microseconds.
 			'time' => $stats->redis_total_time / 1000000,
-			'hits' => $stats->request_cache_hits,
-			'misses' => $stats->request_cache_misses,
+			'hits' => $hits,
+			'misses' => $misses,
 			'lru_cache_misses' => $stats->lru_cache_misses,
 			'lru_cache_hits' => $stats->lru_cache_hits,
 			'lru_cache_items' => $stats->lru_cache_items,
