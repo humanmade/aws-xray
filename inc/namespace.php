@@ -927,17 +927,17 @@ function get_object_cache_stats() : array {
 		$stats = \Afterburner\ObjectCache\getRequestStats();
 		global $wp_object_cache;
 
-		if ( isset ( $stats->request_cache_hits ) ) {
+		if ( isset( $stats->request_cache_hits ) ) {
 			$hits = $stats->request_cache_hits;
-		} else if ( isset( $wp_object_cache->cache_hits ) ) {
+		} elseif ( isset( $wp_object_cache->cache_hits ) ) {
 			$hits = $wp_object_cache->cache_hits;
 		} else {
 			$hits = 0;
 		}
 
-		if ( isset ( $stats->request_cache_misses ) ) {
+		if ( isset( $stats->request_cache_misses ) ) {
 			$misses = $stats->request_cache_misses;
-		} else if ( isset( $wp_object_cache->cache_misses ) ) {
+		} elseif ( isset( $wp_object_cache->cache_misses ) ) {
 			$misses = $wp_object_cache->cache_misses;
 		} else {
 			$misses = 0;
