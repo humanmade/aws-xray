@@ -400,10 +400,12 @@ function get_in_progress_trace() : array {
 		'in_progress' => true,
 	];
 	$metadata = [
-		'$_GET'     => $_GET,
-		'$_POST'    => $_POST,
-		'$_COOKIE'  => $_COOKIE,
-		'$_SERVER'  => $_SERVER,
+		'$_GET' => $_GET,
+		'$_POST' => $_POST,
+		'$_COOKIE' => $_COOKIE,
+		'$_SERVER' => $_SERVER,
+		'$_FILES' => $_FILES,
+		'php://input' => in_array( $_SERVER['REQUEST_METHOD'], [ 'POST', 'PUT', 'PATCH' ], true ) ? file_get_contents( 'php://input' ) : '',
 		'response' => [],
 	];
 	$trace['metadata'] = redact_metadata( $metadata );
@@ -500,14 +502,16 @@ function get_end_trace() : array {
 	];
 
 	$metadata = [
-		'$_GET'        => $_GET,
-		'$_POST'       => $_POST,
-		'$_COOKIE'     => $_COOKIE,
-		'$_SERVER'     => $_SERVER,
-		'response'     => [
+		'$_GET' => $_GET,
+		'$_POST' => $_POST,
+		'$_COOKIE' => $_COOKIE,
+		'$_SERVER' => $_SERVER,
+		'$_FILES' => $_FILES,
+		'php://input' => in_array( $_SERVER['REQUEST_METHOD'], [ 'POST', 'PUT', 'PATCH' ], true ) ? file_get_contents( 'php://input' ) : '',
+		'response' => [
 			'headers' => headers_list(),
 		],
-		'stats'     => $stats,
+		'stats' => $stats,
 	];
 
 	$annotations = [
