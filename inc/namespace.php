@@ -999,6 +999,8 @@ function redact_metadata( $metadata ) {
 	$redact_keys_required = [
 		'$_POST' => [
 			'pwd',
+			'pass1',
+			'pass2',
 		],
 	];
 
