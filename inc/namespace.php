@@ -953,6 +953,8 @@ function get_object_cache_stats() : array {
 			'lru_cache_hits' => $stats->lru_cache_hits,
 			'lru_cache_items' => $stats->lru_cache_items,
 			'lru_cache_size' => $stats->lru_cache_size,
+			'redis_bytes_received' => $stats->redis_bytes_received,
+			'redis_bytes_sent' => $stats->redis_bytes_sent,
 		];
 		return $stats;
 	}
