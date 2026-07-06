@@ -927,6 +927,12 @@ function get_object_cache_stats() : array {
 		$stats = \Afterburner\ObjectCache\getRequestStats();
 		global $wp_object_cache;
 
+		// The cache may not have been initialised yet (e.g. shutdown before
+		// wp_cache_init()), in which case there are no stats to report.
+		if ( ! is_object( $stats ) ) {
+			return [];
+		}
+
 		if ( isset( $stats->request_cache_hits ) ) {
 			$hits = $stats->request_cache_hits;
 		} elseif ( isset( $wp_object_cache->cache_hits ) ) {
