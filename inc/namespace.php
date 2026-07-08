@@ -133,6 +133,16 @@ function on_shutdown() {
  * @return boolean
  */
 function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
+	// Avoid unbounded growth of $hm_platform_xray_errors during long-running
+	// CLI processes (e.g. a `wp elasticpress index` run that can take hours).
+	// There's no request boundary to flush the trace at until the whole CLI
+	// command finishes, so every error/warning would otherwise accumulate for
+	// the life of the process. Query Monitor bails out under CLI for the
+	// same reason (see query-monitor.php's `php_sapi_name() === 'cli'` check).
+	if ( 'cli' === php_sapi_name() ) {
+		return false;
+	}
+
 	global $hm_platform_xray_errors;
 
 	$hm_platform_xray_errors[] = compact( 'errno', 'errstr', 'errfile', 'errline' );
