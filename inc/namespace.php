@@ -132,7 +132,7 @@ function on_shutdown() {
  * @param int|null $errline
  * @return boolean
  */
-function error_handler( int $errno, string $errstr, string $errfile = null, int $errline = null ) : bool {
+function error_handler( int $errno, string $errstr, ?string $errfile = null, ?int $errline = null ) : bool {
 	global $hm_platform_xray_errors;
 
 	$hm_platform_xray_errors[] = compact( 'errno', 'errstr', 'errfile', 'errline' );
